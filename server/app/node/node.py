@@ -13,7 +13,7 @@ class Node:
         print(f"Node {self.node_id} starting up...")
 
         # Initialize Raft consensus
-        print(f"Node {self.node_id} initializing Raft consensus (state: {self.raft.state.value})")
+        print(f"Node {self.node_id} initializing Raft consensus (state: {self.raft.state_name})")
         # TODO: Join cluster if peers exist
         # TODO: Start background heartbeat/election tasks
 
