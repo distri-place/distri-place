@@ -38,3 +38,7 @@ lint:
 format:
 	$(PYTHON_VENV) -m ruff format app/
 	$(PYTHON_VENV) -m ruff check --fix app/
+
+.PHONY: generate-grpc
+generate-grpc:
+	$(PYTHON_VENV) -m grpc_tools.protoc --python_out=generated/grpc --pyi_out=generated/grpc --grpc_python_out=generated/grpc --proto_path=. proto/messages.proto

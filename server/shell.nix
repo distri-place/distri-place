@@ -6,6 +6,7 @@ pkgs.mkShell {
   buildInputs = with pkgs; [
     python311
     gnumake
+    python311Packages.grpcio-tools
   ];
 
   shellHook = ''
