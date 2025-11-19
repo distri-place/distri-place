@@ -10,4 +10,3 @@ class RaftLeader:
 
     def handle_client_request(self, request):
         pass
-

@@ -53,7 +53,7 @@ def home():
 def get_port_for_node(node_id: str) -> int:
     """Get the port number for a given node ID."""
     try:
-        node_num = int(node_id.split('-')[1])
+        node_num = int(node_id.split("-")[1])
         return 8000 + node_num - 1
     except (IndexError, ValueError):
         return 8000

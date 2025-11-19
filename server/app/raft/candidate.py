@@ -10,4 +10,3 @@ class RaftCandidate:
 
     def handle_vote_response(self, response):
         pass
-

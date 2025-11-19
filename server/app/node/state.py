@@ -17,4 +17,3 @@ class NodeStateManager:
 
     def get_state(self) -> NodeState:
         return self.state
-

@@ -13,4 +13,3 @@ class RaftLog:
 
     def get_last_log_term(self) -> int:
         pass
-

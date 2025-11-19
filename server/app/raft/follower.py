@@ -10,4 +10,3 @@ class RaftFollower:
 
     def check_election_timeout(self):
         pass
-

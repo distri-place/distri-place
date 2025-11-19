@@ -22,4 +22,3 @@ class RaftConsensus:
 
     def become_follower(self, term: int):
         pass
-

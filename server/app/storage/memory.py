@@ -25,4 +25,3 @@ class InMemoryStorage:
 
     def set_last_applied(self, index: int):
         self.last_applied = index
-
