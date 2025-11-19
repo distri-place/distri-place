@@ -36,12 +36,19 @@ class ClusterManager:
                 self.processes.append(process)
                 time.sleep(1)
 
-            for process in self.processes:
-                process.wait()
+            # Keep the main process alive
+            while True:
+                time.sleep(1)
+                # Check if any process died
+                for i, process in enumerate(self.processes):
+                    if process.poll() is not None:
+                        print(f"Node-{i + 1} has stopped unexpectedly")
 
         except KeyboardInterrupt:
+            print("\nShutting down cluster...")
             self.stop_cluster()
-        except Exception:
+        except Exception as e:
+            print(f"Error: {e}")
             self.stop_cluster()
             sys.exit(1)
 
@@ -80,4 +87,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
