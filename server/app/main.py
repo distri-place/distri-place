@@ -1,3 +1,5 @@
+import argparse
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -21,6 +23,20 @@ def home():
 
 
 if __name__ == "__main__":
+    import argparse
+
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--node-id", type=str, default="node-1", help="Node ID for this instance")
+    args = parser.parse_args()
+
+    print(f"Starting node: {args.node_id}")
+
+    port = 8000
+    if args.node_id == "node-2":
+        port = 8001
+    elif args.node_id == "node-3":
+        port = 8002
+
+    uvicorn.run(app, host="0.0.0.0", port=port)
