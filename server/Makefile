@@ -16,9 +16,13 @@ install:
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
 
-.PHONY: dev
-dev:
-	$(PYTHON_VENV) -m uvicorn app.main:app --reload --host $(HOST) --port $(PORT)
+.PHONY: start-nodes
+start-nodes:
+	$(PYTHON_VENV) scripts/start_cluster.py
+
+.PHONY: stop-nodes
+stop-nodes:
+	pkill -f "app.main --node-id" || true
 
 .PHONY: test
 test:

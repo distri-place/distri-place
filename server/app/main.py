@@ -52,8 +52,11 @@ def home():
 
 def get_port_for_node(node_id: str) -> int:
     """Get the port number for a given node ID."""
-    port_map = {"node-1": 8000, "node-2": 8001, "node-3": 8002}
-    return port_map.get(node_id, 8000)
+    try:
+        node_num = int(node_id.split('-')[1])
+        return 8000 + node_num - 1
+    except (IndexError, ValueError):
+        return 8000
 
 
 if __name__ == "__main__":
