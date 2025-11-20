@@ -1,154 +1,199 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<title>r/place – tiny client</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<style>
-  body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 16px; }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
-  #status { font-size: 12px; opacity: 0.8; }
-  canvas { image-rendering: pixelated; border: 1px solid #ddd; background: #fff; cursor: crosshair; }
-  input[type="text"] { width: 340px; padding: 6px 8px; }
-  button { padding: 6px 10px; }
-  .small { font-size: 12px; opacity: 0.75; }
-</style>
+    <meta charset="utf-8"/>
+    <title>r/place – tiny client</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <style>
+        body {
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            margin: 16px;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        #status {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        canvas {
+            image-rendering: pixelated;
+            border: 1px solid #ddd;
+            background: #fff;
+            cursor: crosshair;
+        }
+
+        input[type="text"] {
+            width: 340px;
+            padding: 6px 8px;
+        }
+
+        button {
+            padding: 6px 10px;
+        }
+
+        .small {
+            font-size: 12px;
+            opacity: 0.75;
+        }
+    </style>
 </head>
 <body>
-  <div class="row">
-    <input id="wsurl" type="text" placeholder="ws://localhost:8765" value="ws://localhost:8765" />
+<div class="row">
+    <input id="wsurl" type="text" placeholder="ws://localhost:8080/ws" value="ws://localhost:8080/ws"/>
     <button id="connect">Connect</button>
-    <label>Color <input id="color" type="color" value="#ff0000" /></label>
+    <label>Color <input id="color" type="color" value="#ff0000"/></label>
     <span id="status" class="small">disconnected</span>
-  </div>
+</div>
 
-  <canvas id="board" width="64" height="64"></canvas>
-  <div class="small">Tip: Shift-click picks the color from the pixel under the cursor.</div>
+<canvas id="board" width="64" height="64"></canvas>
+<div class="small">Tip: Shift-click picks the color from the pixel under the cursor.</div>
 
 <script>
-(() => {
-  const wsInput = document.getElementById('wsurl');
-  const connectBtn = document.getElementById('connect');
-  const colorInput = document.getElementById('color');
-  const canvas = document.getElementById('board');
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const statusEl = document.getElementById('status');
+    (() => {
+        const wsInput = document.getElementById('wsurl');
+        const connectBtn = document.getElementById('connect');
+        const colorInput = document.getElementById('color');
+        const canvas = document.getElementById('board');
+        const ctx = canvas.getContext('2d', {willReadFrequently: true});
+        const statusEl = document.getElementById('status');
 
-  // visual scale (CSS-only) so pixels look big & crisp
-  const SCALE = 8;
-  canvas.style.width = (canvas.width * SCALE) + 'px';
-  canvas.style.height = (canvas.height * SCALE) + 'px';
+        // visual scale (CSS-only) so pixels look big & crisp
+        const SCALE = 8;
+        canvas.style.width = (canvas.width * SCALE) + 'px';
+        canvas.style.height = (canvas.height * SCALE) + 'px';
 
-  let ws = null;
-  let W = 64, H = 64;
-  let isConnected = false;
+        let ws = null;
+        let W = 64, H = 64;
+        let isConnected = false;
 
-  function setStatus(text) { statusEl.textContent = text; }
-
-  function toHex(colorInt) {
-    const s = colorInt.toString(16).padStart(6, '0');
-    return '#' + s;
-  }
-  function fromHex(hex) {
-    hex = hex.replace('#','');
-    return parseInt(hex, 16) >>> 0;
-  }
-
-  function drawBoard(board) {
-    // board is H x W of ints 0xRRGGBB
-    const img = ctx.createImageData(W, H);
-    let p = 0;
-    for (let y = 0; y < H; y++) {
-      const row = board[y];
-      for (let x = 0; x < W; x++) {
-        const c = row[x] >>> 0;
-        img.data[p++] = (c >> 16) & 255; // R
-        img.data[p++] = (c >> 8) & 255;  // G
-        img.data[p++] = c & 255;         // B
-        img.data[p++] = 255;             // A
-      }
-    }
-    ctx.putImageData(img, 0, 0);
-  }
-
-  function setPixelLocal(x, y, color) {
-    const img = ctx.getImageData(x, y, 1, 1);
-    img.data[0] = (color >> 16) & 255;
-    img.data[1] = (color >> 8) & 255;
-    img.data[2] = color & 255;
-    img.data[3] = 255;
-    ctx.putImageData(img, x, y);
-  }
-
-  function pickPixel(x, y) {
-    const d = ctx.getImageData(x, y, 1, 1).data;
-    const hex = '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('');
-    colorInput.value = hex;
-  }
-
-  function canvasXY(evt) {
-    const rect = canvas.getBoundingClientRect();
-    const cx = Math.floor((evt.clientX - rect.left) / (rect.width / W));
-    const cy = Math.floor((evt.clientY - rect.top) / (rect.height / H));
-    // clamp
-    return [Math.max(0, Math.min(W - 1, cx)), Math.max(0, Math.min(H - 1, cy))];
-  }
-
-  canvas.addEventListener('click', (evt) => {
-    if (!isConnected) return;
-    const [x, y] = canvasXY(evt);
-    if (evt.shiftKey) { pickPixel(x, y); return; }
-    const color = fromHex(colorInput.value);
-    // optimistic local paint is possible, but we’ll wait for commit updates
-    ws.send(JSON.stringify({ type: 'set', x, y, color }));
-  });
-
-  function connect() {
-    if (ws) { ws.close(); ws = null; }
-    const url = wsInput.value.trim();
-    if (!url) return;
-
-    ws = new WebSocket(url);
-    setStatus('connecting…');
-
-    ws.onopen = () => {
-      isConnected = true;
-      setStatus('connected');
-    };
-
-    ws.onclose = () => {
-      isConnected = false;
-      setStatus('disconnected');
-    };
-
-    ws.onerror = () => setStatus('error (see console)');
-
-    ws.onmessage = (ev) => {
-      let msg;
-      try { msg = JSON.parse(ev.data); } catch { return; }
-
-      if (msg.type === 'hello') {
-        // initial snapshot
-        W = msg.w || W; H = msg.h || H;
-        if (canvas.width !== W || canvas.height !== H) {
-          canvas.width = W; canvas.height = H;
-          canvas.style.width = (W * SCALE) + 'px';
-          canvas.style.height = (H * SCALE) + 'px';
+        function setStatus(text) {
+            statusEl.textContent = text;
         }
-        if (Array.isArray(msg.board)) drawBoard(msg.board);
-        setStatus(`connected (node=${msg.node}${msg.leader ? ', leader=' + msg.leader : ''})`);
-      } else if (msg.type === 'pixel') {
-        setPixelLocal(msg.x, msg.y, msg.color >>> 0);
-      } else if (msg.type === 'redirect') {
-        // Server is follower; you can manually connect to the leader if you know its WS address.
-        // The demo server only gives the leader id, not a WS URL.
-        setStatus(`follower: try connecting to the leader (id=${msg.leader || '?'})`);
-      }
-    };
-  }
 
-  connectBtn.addEventListener('click', connect);
-})();
+        function toHex(colorInt) {
+            const s = colorInt.toString(16).padStart(6, '0');
+            return '#' + s;
+        }
+
+        function fromHex(hex) {
+            hex = hex.replace('#', '');
+            return parseInt(hex, 16) >>> 0;
+        }
+
+        function drawBoard(board) {
+            // board is H x W of ints 0xRRGGBB
+            const img = ctx.createImageData(W, H);
+            let p = 0;
+            for (let y = 0; y < H; y++) {
+                const row = board[y];
+                for (let x = 0; x < W; x++) {
+                    const c = row[x] >>> 0;
+                    img.data[p++] = (c >> 16) & 255; // R
+                    img.data[p++] = (c >> 8) & 255;  // G
+                    img.data[p++] = c & 255;         // B
+                    img.data[p++] = 255;             // A
+                }
+            }
+            ctx.putImageData(img, 0, 0);
+        }
+
+        function setPixelLocal(x, y, color) {
+            const img = ctx.getImageData(x, y, 1, 1);
+            img.data[0] = (color >> 16) & 255;
+            img.data[1] = (color >> 8) & 255;
+            img.data[2] = color & 255;
+            img.data[3] = 255;
+            ctx.putImageData(img, x, y);
+        }
+
+        function pickPixel(x, y) {
+            const d = ctx.getImageData(x, y, 1, 1).data;
+            colorInput.value = `#${[d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('')}`;
+        }
+
+        function canvasXY(evt) {
+            const rect = canvas.getBoundingClientRect();
+            const cx = Math.floor((evt.clientX - rect.left) / (rect.width / W));
+            const cy = Math.floor((evt.clientY - rect.top) / (rect.height / H));
+            // clamp
+            return [Math.max(0, Math.min(W - 1, cx)), Math.max(0, Math.min(H - 1, cy))];
+        }
+
+        canvas.addEventListener('click', (evt) => {
+            if (!isConnected) return;
+            const [x, y] = canvasXY(evt);
+            if (evt.shiftKey) {
+                pickPixel(x, y);
+                return;
+            }
+            const color = fromHex(colorInput.value);
+            // optimistic local paint is possible, but we’ll wait for commit updates
+            ws.send(JSON.stringify({type: 'set', x, y, color}));
+        });
+
+        function connect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            const url = wsInput.value.trim();
+            if (!url) return;
+
+            ws = new WebSocket(url);
+            setStatus('connecting…');
+
+            ws.onopen = () => {
+                isConnected = true;
+                setStatus('connected');
+            };
+
+            ws.onclose = () => {
+                isConnected = false;
+                setStatus('disconnected');
+            };
+
+            ws.onerror = () => setStatus('error (see console)');
+
+            ws.onmessage = (ev) => {
+                let msg;
+                try {
+                    msg = JSON.parse(ev.data);
+                } catch {
+                    return;
+                }
+
+                if (msg.type === 'hello') {
+                    // initial snapshot
+                    W = msg.w || W;
+                    H = msg.h || H;
+                    if (canvas.width !== W || canvas.height !== H) {
+                        canvas.width = W;
+                        canvas.height = H;
+                        canvas.style.width = (W * SCALE) + 'px';
+                        canvas.style.height = (H * SCALE) + 'px';
+                    }
+                    if (Array.isArray(msg.board)) drawBoard(msg.board);
+                    setStatus(`connected (node=${msg.node}${msg.leader ? ', leader=' + msg.leader : ''})`);
+                } else if (msg.type === 'pixel') {
+                    setPixelLocal(msg.x, msg.y, msg.color >>> 0);
+                } else if (msg.type === 'redirect') {
+                    // Server is follower; you can manually connect to the leader if you know its WS address.
+                    // The demo server only gives the leader id, not a WS URL.
+                    setStatus(`follower: try connecting to the leader (id=${msg.leader || '?'})`);
+                }
+            };
+        }
+
+        connectBtn.addEventListener('click', connect);
+    })();
 </script>
 </body>
 </html>
