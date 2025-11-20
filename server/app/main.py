@@ -61,19 +61,32 @@ def get_port_for_node(node_id: str) -> int:
 
 if __name__ == "__main__":
     import uvicorn
+    import os
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--node-id",
         type=str,
-        default="node-1",
+        default=os.getenv("HOSTNAME", "node-1"),
         help="Node ID",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=os.getenv("PORT", 8000),
+        help="Port to run the server on",
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default=os.getenv("HOSTNAME", "0.0.0.0"),
+        help="Host to run the server on",
     )
     args = parser.parse_args()
 
     node_instance = Node(args.node_id)
 
-    port = get_port_for_node(args.node_id)
+    port = args.port if args.port else get_port_for_node(args.node_id)
     print(f"Initializing node: {args.node_id} on port {port}")
 
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host=args.host, port=port)
