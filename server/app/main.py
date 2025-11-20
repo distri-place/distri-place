@@ -36,7 +36,6 @@ app.add_middleware(
 
 app.include_router(client_router, prefix="/client")
 
-
 @app.get("/")
 def home():
     """Health check endpoint."""
@@ -67,7 +66,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--node-id",
         type=str,
-        default=os.getenv("HOSTNAME", "node-1"),
+        default=os.getenv("NODE_ID", "node-1"),
         help="Node ID",
     )
     parser.add_argument(
