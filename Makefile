@@ -18,15 +18,16 @@ dev-logs:
 # Client for VM deployment
 .PHONY: client-up
 client-up:
-	docker compose up -d nginx-vm
+	docker compose up -d client
 
 .PHONY: client-down
 client-down:
-	docker compose --profile vm down
+	docker compose stop client
+	docker compose rm -f client
 
 .PHONY: client-logs
 client-logs:
-	docker compose --profile vm logs -f nginx-vm
+	docker compose logs -f client
 
 # Demo workflow
 .PHONY: demo
