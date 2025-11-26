@@ -1,5 +1,1 @@
-.idea
-
 vm-config.env
-.vm*_endpoint
-nginx/nginx-vm.conf
