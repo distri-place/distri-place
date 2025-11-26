@@ -23,12 +23,16 @@ client-up:
 		echo "Error: VM nginx config not found. Run 'make vm-up' first."; \
 		exit 1; \
 	fi
-	docker-compose --profile vm up -d nginx-vm
+	docker compose --profile vm up -d nginx-vm
 	@echo "Client available at: http://localhost:8080"
 
 .PHONY: client-down
 client-down:
-	docker-compose --profile vm down
+	docker compose --profile vm down
+
+.PHONY: client-logs
+client-logs:
+	docker compose --profile vm logs -f nginx-vm
 
 # VM Deployment targets
 .PHONY: vm-up
