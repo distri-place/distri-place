@@ -9,12 +9,29 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./client:/usr/share/nginx/html:ro
+    environment:
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-dev}
     depends_on:
       - node-1
       - node-2
       - node-3
     networks:
       - distri-place-network
+    profiles:
+      - dev
+
+  nginx-vm:
+    image: nginx:alpine
+    container_name: distri-place-nginx-vm
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx-vm.conf:/etc/nginx/nginx.conf:ro
+      - ./client:/usr/share/nginx/html:ro
+    networks:
+      - distri-place-network
+    profiles:
+      - vm
 
   node-1:
     build: ./server
@@ -24,6 +41,8 @@ services:
       - PORT=8000
     networks:
       - distri-place-network
+    profiles:
+      - dev
 
   node-2:
     build: ./server
@@ -33,6 +52,8 @@ services:
       - PORT=8000
     networks:
       - distri-place-network
+    profiles:
+      - dev
 
   node-3:
     build: ./server
@@ -42,6 +63,8 @@ services:
       - PORT=8000
     networks:
       - distri-place-network
+    profiles:
+      - dev
 
 networks:
   distri-place-network:
