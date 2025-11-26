@@ -50,7 +50,7 @@ deploy_to_vm() {
     build_ssh_cmd "$key" "$user" "$host" "mkdir -p $REMOTE_APP_DIR" 2>/dev/null
 
     echo -e "Copying server code to VM$vm_num"
-    rsync -avz --delete -e "ssh $(build_ssh_opts_for_rsync $key)" \
+    rsync -avz --delete --exclude="venv" -e "ssh $(build_ssh_opts_for_rsync $key)" \
         "$ROOT_DIR/server/" "$user@$host:$REMOTE_APP_DIR/"
 
     echo -e "Setting up Python environment on VM$vm_num"
@@ -71,14 +71,11 @@ deploy_to_vm() {
         # Activate virtual environment
         source venv/bin/activate
 
-        # Install dependencies
         if [[ -f requirements.txt ]]; then
-            timeout $REQUIREMENTS_TIMEOUT pip install -r requirements.txt
+            pip install -r requirements.txt
         fi
 
-        # Stop any existing process
         pkill -f "python.*main.py" || true
-        sleep 2
 EOF
 
     if [[ $? -ne 0 ]]; then
@@ -91,14 +88,11 @@ EOF
         cd $REMOTE_APP_DIR
         source venv/bin/activate
 
-        nohup python -m app.main \
-            --node-id node-$vm_num \
-            --port $port \
-            > logs/node-$vm_num.log 2>&1 &
+        make setup
+        nohup make start-node HOST=0.0.0.0 PORT=$port NODE_ID=node-$vm_num > logs/node-$vm_num.log 2>&1 &
 
         echo \$! > node-$vm_num.pid
 
-        # Wait a moment and check if process started
         sleep 3
         if ps -p \$(cat node-$vm_num.pid) > /dev/null 2>&1; then
             echo "Service started successfully on port $port"
@@ -118,32 +112,23 @@ EOF
 }
 
 main() {
-    log "Starting VM deployment"
+    echo -e "Starting VM deployment"
 
     mkdir -p "$ROOT_DIR/server/logs"
 
-    local success_count=0
     for vm in 1 2 3; do
-        if deploy_to_vm $vm; then
-            ((success_count++))
-        else
+        if ! deploy_to_vm $vm; then
             echo -e "VM$vm deployment failed"
+            exit 1
         fi
     done
 
-    echo -e "Deployment complete: $success_count/3 VMs deployed successfully"
+    echo -e "VMs deployed successfully"
 
-    if [[ $success_count -gt 0 ]]; then
-        echo -e "Generating client configuration"
-        "$SCRIPT_DIR/generate-client-config.sh"
-    fi
+    echo -e "Generating client configuration"
+    "$SCRIPT_DIR/generate-client-config.sh"
 
-    if [[ $success_count -eq 3 ]]; then
-        echo -e "All VMs deployed successfully!"
-    else
-        echo -e "Not all VMs deployed successfully. Check the logs above."
-        exit 1
-    fi
+    echo -e "All VMs deployed successfully!"
 }
 
 case "${1:-deploy}" in
