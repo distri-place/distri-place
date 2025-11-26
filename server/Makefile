@@ -41,4 +41,4 @@ format:
 
 .PHONY: generate-grpc
 generate-grpc:
-	$(PYTHON_VENV) -m grpc_tools.protoc --python_out=generated/grpc --pyi_out=generated/grpc --grpc_python_out=generated/grpc --proto_path=. proto/messages.proto
+	$(PYTHON_VENV) -m grpc_tools.protoc --python_out=app/generated/grpc --pyi_out=app/generated/grpc --grpc_python_out=app/generated/grpc --proto_path=proto proto/messages.proto
