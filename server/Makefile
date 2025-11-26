@@ -4,6 +4,7 @@ PIP := $(VENV)/bin/pip
 PYTHON_VENV := $(VENV)/bin/python
 PORT := 8000
 HOST := 0.0.0.0
+NODE_ID := node-1
 
 .PHONY: setup
 setup:
@@ -15,6 +16,10 @@ setup:
 install:
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
+
+.PHONY: start-node
+start-node:
+	$(PYTHON_VENV) -m app.main --node-id $(NODE_ID) --port $(PORT) --host $(HOST)
 
 .PHONY: start-nodes
 start-nodes:
