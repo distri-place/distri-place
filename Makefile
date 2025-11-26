@@ -33,3 +33,7 @@ client-logs:
 .PHONY: demo
 demo:
 	./scripts/tmux-vms.sh
+
+.PHONY: test-ssh
+test-ssh:
+	./scripts/test-ssh.sh
