@@ -9,10 +9,13 @@ tmux new-session -d -s vms
 tmux split-window -h -t vms
 tmux split-window -h -t vms
 tmux select-layout -t vms even-horizontal
+tmux split-window -v -t vms.1
+tmux select-layout -t vms tiled
 
 tmux send-keys -t vms.1 "ssh ${SSH_OPTS} -i ${VM1_SSH_KEY} -o ProxyCommand=\"ssh -i ${GATEWAY_KEY} ${SSH_OPTS} ${GATEWAY_USER}@${GATEWAY_HOST} -W %h:%p\" ${VM1_USER}@${VM1_HOST}" Enter
 tmux send-keys -t vms.2 "ssh ${SSH_OPTS} -i ${VM2_SSH_KEY} -o ProxyCommand=\"ssh -i ${GATEWAY_KEY} ${SSH_OPTS} ${GATEWAY_USER}@${GATEWAY_HOST} -W %h:%p\" ${VM2_USER}@${VM2_HOST}" Enter
 tmux send-keys -t vms.3 "ssh ${SSH_OPTS} -i ${VM3_SSH_KEY} -o ProxyCommand=\"ssh -i ${GATEWAY_KEY} ${SSH_OPTS} ${GATEWAY_USER}@${GATEWAY_HOST} -W %h:%p\" ${VM3_USER}@${VM3_HOST}" Enter
+tmux send-keys -t vms.4 "ssh ${SSH_OPTS} -L 8080:localhost:8080 -i ${GATEWAY_KEY} ${GATEWAY_USER}@${GATEWAY_HOST}" Enter
 
 if [ -n "$TMUX" ]; then
     tmux switch-client -t vms
