@@ -9,13 +9,14 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./client:/usr/share/nginx/html:ro
+    environment:
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-dev}
     depends_on:
       - node-1
       - node-2
       - node-3
     networks:
       - distri-place-network
-
   node-1:
     build: ./server
     container_name: distri-place-node-1
@@ -45,6 +46,14 @@ services:
       - PEERS=node-1,node-2
     networks:
       - distri-place-network
+
+  client:
+    image: nginx:alpine
+    container_name: distri-place-client
+    ports:
+      - "3000:80"
+    volumes:
+      - ./client:/usr/share/nginx/html:ro
 
 networks:
   distri-place-network:

@@ -4,6 +4,7 @@ PIP := $(VENV)/bin/pip
 PYTHON_VENV := $(VENV)/bin/python
 PORT := 8000
 HOST := 0.0.0.0
+NODE_ID := node-1
 
 .PHONY: setup
 setup:
@@ -11,14 +12,15 @@ setup:
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements-dev.txt
 
-.PHONY: install
-install:
+.PHONY: setup-prod
+setup-prod:
+	$(PYTHON) -m venv $(VENV)
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
 
-.PHONY: start-nodes
-start-nodes:
-	$(PYTHON_VENV) scripts/start_cluster.py
+.PHONY: start-node
+start-node:
+	$(PYTHON_VENV) -m app.main --node-id $(NODE_ID) --port $(PORT) --host $(HOST)
 
 .PHONY: stop-nodes
 stop-nodes:
