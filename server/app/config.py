@@ -7,7 +7,6 @@ from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDic
 load_dotenv()
 
 
-
 class CommaListEnvSource(EnvSettingsSource):
     def prepare_field_value(
         self,
@@ -38,12 +37,12 @@ class Settings(BaseSettings):
 
     @classmethod
     def settings_customise_sources(
-            cls,
-            settings_cls,
-            init_settings,
-            env_settings,
-            dotenv_settings,
-            file_secret_settings,
+        cls,
+        settings_cls,
+        init_settings,
+        env_settings,
+        dotenv_settings,
+        file_secret_settings,
     ):
         return (
             init_settings,

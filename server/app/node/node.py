@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from collections.abc import Coroutine
+from io import BytesIO
 import json
 import random
-from io import BytesIO
-from typing import Any, cast, Coroutine
+from typing import Any, cast
 
 import grpc.aio as grpc
 from PIL import Image
@@ -14,34 +15,31 @@ from typing_extensions import Buffer
 from app.client.manager import manager as client_manager
 from app.generated.grpc.messages_pb2 import (
     AppendEntriesRequest,
-    RequestVoteRequest,
     AppendEntriesResponse,
-    RequestVoteResponse,
     HealthCheckRequest,
     HealthCheckResponse,
+    LogEntry,
+    RequestVoteRequest,
+    RequestVoteResponse,
     SetPixelRequest,
     SetPixelResponse,
-    LogEntry,
 )
 from app.generated.grpc.messages_pb2_grpc import (
     RaftNodeServicer,
+    RaftNodeStub,
     add_RaftNodeServicer_to_server,
-    RaftNodeStub
 )
 from app.raft.consensus import RaftConsensus
 from app.utils.timers import AsyncTicker
 
 
 def make_entry(term: int, index: int, command: str, data: Any) -> LogEntry:
-    return LogEntry(
-        term=term,
-        index=index,
-        command=command,
-        data=json.dumps(data).encode('utf-8')
-    )
+    return LogEntry(term=term, index=index, command=command, data=json.dumps(data).encode("utf-8"))
 
 
-def init_canvas_image(width: int = 64, height: int = 64, color: tuple[int, int, int] = (255, 255, 255)) -> Image.Image:
+def init_canvas_image(
+    width: int = 64, height: int = 64, color: tuple[int, int, int] = (255, 255, 255)
+) -> Image.Image:
     return Image.new("RGB", (width, height), color)
 
 
@@ -49,6 +47,7 @@ def log_error(message: str):
     print(f"\x1b[38;5;{1}m", end="", flush=True)
     print(f"[ERROR] {message}", end="", flush=True)
     print("\x1b[0m", flush=True)
+
 
 class Node(RaftNodeServicer):
     def __init__(self, node_id: str, peers: list[str]):
@@ -61,7 +60,9 @@ class Node(RaftNodeServicer):
         self.clients = []
         self.canvas = init_canvas_image()
         self.grpc_server: grpc.Server | None = None
-        self.election_timeout = AsyncTicker(random.uniform(1.5, 3.0), self.start_election, start=False)
+        self.election_timeout = AsyncTicker(
+            random.uniform(1.5, 3.0), self.start_election, start=False
+        )
         self.heartbeat = AsyncTicker(1.0, self.send_heartbeat_once, start=False)
 
     def stub(self, node_id: str) -> RaftNodeStub:
@@ -71,20 +72,24 @@ class Node(RaftNodeServicer):
             self._stubs[node_id] = RaftNodeStub(self._channels[node_id])
         return self._stubs[node_id]
 
-    async def peer_request_vote(self, node: str, term: int, last_log_index: int,
-                                last_log_term: int) -> RequestVoteResponse:
+    async def peer_request_vote(
+        self, node: str, term: int, last_log_index: int, last_log_term: int
+    ) -> RequestVoteResponse:
         try:
-            return await self.stub(node).RequestVote(RequestVoteRequest(
-                term=term,
-                candidate_id=self.node_id,
-                last_log_index=last_log_index,
-                last_log_term=last_log_term,
-            ))
-        except Exception as e:
+            return await self.stub(node).RequestVote(
+                RequestVoteRequest(
+                    term=term,
+                    candidate_id=self.node_id,
+                    last_log_index=last_log_index,
+                    last_log_term=last_log_term,
+                )
+            )
+        except Exception:
             raise
 
     async def start_election(self):
-        if self.is_leader(): return
+        if self.is_leader():
+            return
         self.raft.become_candidate()
         await self.election_timeout.reset()
         term = self.raft.current_term
@@ -98,8 +103,7 @@ class Node(RaftNodeServicer):
             return
 
         requests: list[Coroutine[Any, Any, RequestVoteResponse]] = [
-            self.peer_request_vote(peer, term, lli, llt)
-            for peer in self.peers
+            self.peer_request_vote(peer, term, lli, llt) for peer in self.peers
         ]
         results: list[RequestVoteResponse] = await asyncio.gather(*requests, return_exceptions=True)
 
@@ -112,20 +116,24 @@ class Node(RaftNodeServicer):
             return
         votes = 1 + len([resp for resp in results if resp.vote_granted])
         if votes >= majority:
-            print(f"[{self.node_id}] Elected leader for term {self.raft.current_term} with {votes} votes")
+            print(
+                f"[{self.node_id}] Elected leader for term {self.raft.current_term} with {votes} votes"
+            )
             self.raft.become_leader()
 
     async def send_heartbeat_once(self):
         if not self.is_leader():
             return
         for peer in self.peers:
-            await self.stub(peer).AppendEntries(AppendEntriesRequest(
-                term=self.raft.current_term,
-                leader_id=self.node_id,
-                prev_log_index=self.last_log_index(),
-                prev_log_term=self.last_log_term(),
-                leader_commit=self.raft.commit_index,
-            ))
+            await self.stub(peer).AppendEntries(
+                AppendEntriesRequest(
+                    term=self.raft.current_term,
+                    leader_id=self.node_id,
+                    prev_log_index=self.last_log_index(),
+                    prev_log_term=self.last_log_term(),
+                    leader_commit=self.raft.commit_index,
+                )
+            )
 
     async def start(self):
         print(f"Node {self.node_id} starting up...")
@@ -185,16 +193,20 @@ class Node(RaftNodeServicer):
 
     async def node_append_entries(self, node: str, entries: list[LogEntry]) -> None:
         print(f"{self.node_id} -> {node}.AppendEntries(...)")
-        resp: AppendEntriesResponse = await self.stub(node).AppendEntries(AppendEntriesRequest(
-            term=self.raft.current_term,
-            leader_id=self.raft.leader_id,
-            prev_log_index=self.last_log_index(),
-            prev_log_term=self.last_log_term(),
-            entries=entries,
-            leader_commit=self.raft.commit_index,
-        ))
+        resp: AppendEntriesResponse = await self.stub(node).AppendEntries(
+            AppendEntriesRequest(
+                term=self.raft.current_term,
+                leader_id=self.raft.leader_id,
+                prev_log_index=self.last_log_index(),
+                prev_log_term=self.last_log_term(),
+                entries=entries,
+                leader_commit=self.raft.commit_index,
+            )
+        )
         if not resp.success:
-            print(f"AppendEntries to {node} failed: term={resp.term}, match_index={resp.match_index}")
+            print(
+                f"AppendEntries to {node} failed: term={resp.term}, match_index={resp.match_index}"
+            )
 
     async def peer_health_check(self, node: str) -> HealthCheckResponse:
         print(f"{self.node_id} -> {node}.HealthCheck(...)")
@@ -214,7 +226,7 @@ class Node(RaftNodeServicer):
                 term=self.raft.current_term,
                 index=self.last_log_index() + 1,
                 command="pixel",
-                data=json.dumps(data).encode('utf-8')
+                data=json.dumps(data).encode("utf-8"),
             )
             req = AppendEntriesRequest(
                 term=self.raft.current_term,
@@ -225,11 +237,13 @@ class Node(RaftNodeServicer):
                 leader_commit=self.raft.commit_index,
             )
             self.raft.log.append(entry)
-            await asyncio.gather(*[self.stub(peer).AppendEntries(req) for peer in self.peers], return_exceptions=True)
+            await asyncio.gather(
+                *[self.stub(peer).AppendEntries(req) for peer in self.peers], return_exceptions=True
+            )
             # TODO: check responses for majority and commit only if majority succeeded
             self.raft.commit_index = self.last_log_index()
             await self.apply_command(entry.command, data)
-        else: # Forward to leader
+        else:  # Forward to leader
             async with grpc.insecure_channel(f"{self.raft.leader_id}:50051") as channel:
                 req = SetPixelRequest(x=x, y=y, color=color, user_id=user_id)
                 await RaftNodeStub(channel).SetPixel(req)
@@ -237,7 +251,7 @@ class Node(RaftNodeServicer):
 
     async def peers_health_check(self, attempts: int = 3, delay: float = 1.0):
         for peer in self.peers:
-            for i in range(attempts):
+            for _ in range(attempts):
                 try:
                     await self.stub(peer).HealthCheck(HealthCheckRequest(node_id=self.node_id))
                 except Exception:
@@ -252,29 +266,34 @@ class Node(RaftNodeServicer):
         llt = self.last_log_term()
 
         vote_granted = False
-        up_to_date = (request.last_log_term > llt or (request.last_log_term == llt and request.last_log_index >= lli))
+        up_to_date = request.last_log_term > llt or (
+            request.last_log_term == llt and request.last_log_index >= lli
+        )
 
-        if request.term == self.raft.current_term and up_to_date and (
-                self.raft.voted_for in (None, request.candidate_id)):
+        if (
+            request.term == self.raft.current_term
+            and up_to_date
+            and (self.raft.voted_for in (None, request.candidate_id))
+        ):
             self.raft.voted_for = request.candidate_id
             vote_granted = True
             self.raft.leader_id = None
 
-        return RequestVoteResponse(
-            term=self.raft.current_term,
-            vote_granted=vote_granted
-        )
+        return RequestVoteResponse(term=self.raft.current_term, vote_granted=vote_granted)
 
     async def apply_command(self, command: str, data: bytes | dict):
         if isinstance(data, bytes):
             try:
-                data = json.loads(data.decode('utf-8'))
+                data = json.loads(data.decode("utf-8"))
             except json.JSONDecodeError as e:
                 log_error(f"Node {self.node_id}: failed to decode command data: {e}")
                 data = None
         match command:
             case "pixel" if isinstance(data, dict):
-                self.canvas.putpixel((data["x"], data["y"]), tuple(int(data["color"][i:i + 2], 16) for i in (1, 3, 5)))
+                self.canvas.putpixel(
+                    (data["x"], data["y"]),
+                    tuple(int(data["color"][i : i + 2], 16) for i in (1, 3, 5)),
+                )
                 await client_manager.broadcast("pixel", data)
             case _:
                 print(f"Node {self.node_id} received unknown command: {command}")
@@ -306,13 +325,15 @@ class Node(RaftNodeServicer):
             )
 
         def get_term_at(idx: int) -> int:
-            if idx == 0: return 0
-            if 1 <= idx <= self.last_log_index(): return self.raft.log[idx - 1].term
+            if idx == 0:
+                return 0
+            if 1 <= idx <= self.last_log_index():
+                return self.raft.log[idx - 1].term
             return -1
 
         if request.prev_log_index > 0:
             if get_term_at(request.prev_log_index) != request.prev_log_term:
-                self.raft.log = self.raft.log[:request.prev_log_index - 1]
+                self.raft.log = self.raft.log[: request.prev_log_index - 1]
                 return AppendEntriesResponse(
                     term=self.raft.current_term,
                     success=False,
@@ -322,7 +343,7 @@ class Node(RaftNodeServicer):
         for entry in request.entries:
             if entry.index <= self.last_log_index():
                 if get_term_at(entry.index) != entry.term:
-                    self.raft.log = self.raft.log[:entry.index - 1]
+                    self.raft.log = self.raft.log[: entry.index - 1]
                     self.raft.log.append(entry)
                     await self.apply_command(entry.command, entry.data)
             else:
@@ -339,17 +360,16 @@ class Node(RaftNodeServicer):
         )
 
     async def HealthCheck(self, request: HealthCheckRequest, context) -> HealthCheckResponse:
-        return HealthCheckResponse(
-            node_id=self.node_id,
-            status=await self.get_status()
+        return HealthCheckResponse(node_id=self.node_id, status=await self.get_status())
 
-        )
 
 _instance: Node | None = None
+
 
 def get_node_instance() -> Node:
     global _instance
     if _instance is None:
         from app.config import settings
+
         _instance = Node(node_id=settings.NODE_ID, peers=settings.PEERS)
     return _instance

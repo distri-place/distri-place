@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import asyncio
 
 
@@ -20,7 +21,7 @@ class AsyncTicker:
                 result = self.callback()
                 if asyncio.iscoroutine(result):
                     self._cb_task = asyncio.create_task(result)
-                    self._cb_task.add_done_callback(lambda _: setattr(self, '_cb_task', None))
+                    self._cb_task.add_done_callback(lambda _: setattr(self, "_cb_task", None))
             except asyncio.CancelledError:
                 return
 

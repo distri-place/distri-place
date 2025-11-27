@@ -1,13 +1,15 @@
-import json
-from typing import Dict, Any
-from uuid import uuid4
-from fastapi import WebSocket
 import asyncio
+import json
+from typing import Any
+from uuid import uuid4
+
+from fastapi import WebSocket
+
 
 class ConnectionManager:
     def __init__(self) -> None:
         self._background_tasks: set[asyncio.Task] = set()
-        self._clients: Dict[str, WebSocket] = {}
+        self._clients: dict[str, WebSocket] = {}
         self._lock = asyncio.Lock()
 
     async def connect(self, websocket: WebSocket) -> str:

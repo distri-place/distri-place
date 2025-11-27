@@ -1,11 +1,9 @@
-
 from .node import (
-    get_node_instance,
     Node,
-
+    get_node_instance,
 )
 
 __all__ = [
-    'Node',
+    "Node",
     "get_node_instance",
 ]

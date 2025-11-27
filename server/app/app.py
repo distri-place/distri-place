@@ -1,12 +1,13 @@
-import dataclasses
 from contextlib import asynccontextmanager
+import dataclasses
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-import app.node
 from app.api.client.routes import router as client_router
 from app.api.ws.routes import router as ws_router
+import app.node
+
 
 @dataclasses.dataclass
 class SetPixelArg:
@@ -16,6 +17,7 @@ class SetPixelArg:
 
 
 node_instance = app.node.get_node_instance()
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -49,4 +51,3 @@ def home():
         "node_id": node_instance.node_id,
         "status": "active",
     }
-
