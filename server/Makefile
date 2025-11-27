@@ -32,14 +32,14 @@ test:
 
 .PHONY: lint
 lint:
-	$(PYTHON_VENV) -m ruff check app/
-	$(PYTHON_VENV) -m ruff format --check app/
-	$(PYTHON_VENV) -m mypy app/
+	$(PYTHON_VENV) -m ruff check app/ --exclude app/generated/
+	$(PYTHON_VENV) -m ruff format --check app/ --exclude app/generated/
+	$(PYTHON_VENV) -m mypy app/ --exclude app/generated/
 
 .PHONY: format
 format:
-	$(PYTHON_VENV) -m ruff format app/
-	$(PYTHON_VENV) -m ruff check --fix app/
+	$(PYTHON_VENV) -m ruff format app/ --exclude app/generated/
+	$(PYTHON_VENV) -m ruff check --fix app/ --exclude app/generated/
 
 .PHONY: generate-grpc
 generate-grpc:
