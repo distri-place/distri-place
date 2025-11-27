@@ -49,7 +49,7 @@ def log_error(message: str):
     print("\x1b[0m", flush=True)
 
 
-class Node(RaftNodeServicer):
+class RaftNode(RaftNodeServicer):
     def __init__(self, node_id: str, peers: list[str]):
         self.node_id = node_id
         self.raft = RaftConsensus(node_id)
@@ -363,13 +363,13 @@ class Node(RaftNodeServicer):
         return HealthCheckResponse(node_id=self.node_id, status=await self.get_status())
 
 
-_instance: Node | None = None
+_instance: RaftNode | None = None
 
 
-def get_node_instance() -> Node:
+def get_node_instance() -> RaftNode:
     global _instance
     if _instance is None:
         from app.config import settings
 
-        _instance = Node(node_id=settings.NODE_ID, peers=settings.PEERS)
+        _instance = RaftNode(node_id=settings.NODE_ID, peers=settings.PEERS)
     return _instance

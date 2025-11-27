@@ -4,7 +4,7 @@ import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.client.manager import manager as client_manager
-from app.node import get_node_instance
+from app.raft.node import get_node_instance
 
 router = APIRouter()
 

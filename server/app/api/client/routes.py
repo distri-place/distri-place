@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.node import get_node_instance
+from app.raft.node import get_node_instance
 
 router = APIRouter()
 

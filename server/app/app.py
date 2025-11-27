@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.client.routes import router as client_router
 from app.api.ws.routes import router as ws_router
-import app.node
+from app.raft.node import get_node_instance
 
 
 @dataclasses.dataclass
@@ -16,7 +16,7 @@ class SetPixelArg:
     value: str
 
 
-node_instance = app.node.get_node_instance()
+node_instance = get_node_instance()
 
 
 @asynccontextmanager
