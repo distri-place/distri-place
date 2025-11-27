@@ -34,6 +34,10 @@ client-logs:
 demo:
 	./scripts/tmux-vms.sh
 
+.PHONY: setup-ssh
+setup-ssh:
+	./scripts/setup-ssh-keys.sh
+
 .PHONY: test-ssh
 test-ssh:
 	./scripts/test-ssh.sh
