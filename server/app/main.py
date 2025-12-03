@@ -28,29 +28,31 @@ async def main():
     )
     raft_node = RaftNode(node_id=node_id, peers=peers)
 
-    # Set the node instance for the FastAPI app
     set_node_instance(raft_node)
 
-    # Create FastAPI app
     fastapi_app = create_app()
 
-    # Configure uvicorn
     http_config = uvicorn.Config(
         app=fastapi_app, host=settings.HOST, port=settings.HTTP_PORT, log_level="info"
     )
-    http_server = uvicorn.Server(http_config)
 
-    # Start all services concurrently
+    http_server = uvicorn.Server(http_config)
+    grpc_task = asyncio.create_task(run_grpc_server(raft_node))
+    raft_task = asyncio.create_task(raft_node.start())
+
     try:
-        await asyncio.gather(
-            http_server.serve(),
-            run_grpc_server(raft_node),
-            raft_node.start(),
-        )
-    except (KeyboardInterrupt, asyncio.CancelledError):
-        print(f"\nShutting down node {node_id}")
+        await http_server.serve()
     finally:
-        await raft_node.stop()
+        grpc_task.cancel()
+        raft_task.cancel()
+        try:
+            await grpc_task
+        except asyncio.CancelledError:
+            pass
+        try:
+            await raft_task
+        except asyncio.CancelledError:
+            pass
 
 
 if __name__ == "__main__":

@@ -8,7 +8,6 @@ import json
 import random
 from typing import Any, cast
 
-import grpc.aio as grpc
 from PIL import Image
 from typing_extensions import Buffer
 
@@ -47,7 +46,6 @@ class RaftNode:
 
         # gRPC components - clean separation
         self.grpc_client = RaftClient(node_id)
-        self.grpc_server: grpc.Server | None = None
         self.election_timeout_task: asyncio.Task | None = None
         self.heartbeat_task: asyncio.Task | None = None
 
@@ -55,24 +53,13 @@ class RaftNode:
         await self._start_election_timeout()
         await self._start_heartbeat()
 
-        # Keep running until cancelled
-        try:
-            while True:
-                await asyncio.sleep(1)
-        except asyncio.CancelledError:
-            pass
-
     async def stop(self):
         if self.election_timeout_task:
             self.election_timeout_task.cancel()
         if self.heartbeat_task:
             self.heartbeat_task.cancel()
 
-        # Close gRPC connections
         await self.grpc_client.close_all()
-        if self.grpc_server:
-            await self.grpc_server.stop(0.2)
-            await self.grpc_server.wait_for_termination(timeout=0.2)
 
     async def start_election(self):
         if self.is_leader():

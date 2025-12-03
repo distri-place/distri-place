@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+import asyncio
 
 import grpc.aio as grpc
 
@@ -118,19 +118,21 @@ class RaftServices(RaftNodeServicer):
         return SetPixelResponse(status="ok")
 
 
-async def create_grpc_server(raft_node: RaftNode):
+async def run_grpc_server(raft_node: RaftNode):
     server = grpc.server()
     services = RaftServices(raft_node)
+
     add_RaftNodeServicer_to_server(services, server)
+
     listen_addr = f"{settings.HOST}:{settings.GRPC_PORT}"
     server.add_insecure_port(listen_addr)
+
     await server.start()
-    return server
+    print(f"gRPC server started on {listen_addr}")
 
-
-async def run_grpc_server(raft_node: RaftNode):
-    server = await create_grpc_server(raft_node)
     try:
         await server.wait_for_termination()
-    finally:
-        await server.stop(0.2)
+    except KeyboardInterrupt:
+        await server.stop(10)
+    except asyncio.CancelledError:
+        await server.stop(1)
