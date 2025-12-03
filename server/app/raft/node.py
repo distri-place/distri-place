@@ -55,6 +55,13 @@ class RaftNode:
         await self._start_election_timeout()
         await self._start_heartbeat()
 
+        # Keep running until cancelled
+        try:
+            while True:
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            pass
+
     async def stop(self):
         if self.election_timeout_task:
             self.election_timeout_task.cancel()
@@ -226,22 +233,3 @@ class RaftNode:
                 await client_manager.broadcast("pixel", data)
             case _:
                 pass
-
-
-_instance: RaftNode | None = None
-
-
-def get_node_instance() -> RaftNode:
-    global _instance
-    if _instance is None:
-        from app.config import settings
-
-        peers = (
-            settings.PEERS
-            if isinstance(settings.PEERS, list)
-            else [settings.PEERS]
-            if settings.PEERS
-            else []
-        )
-        _instance = RaftNode(node_id=settings.NODE_ID, peers=peers)
-    return _instance

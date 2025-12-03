@@ -4,7 +4,7 @@ import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.client.manager import manager as client_manager
-from app.raft.node import get_node_instance
+from app.dependencies import get_node
 
 router = APIRouter()
 
@@ -12,7 +12,7 @@ router = APIRouter()
 @router.websocket("/")
 async def websocket_endpoint(ws: WebSocket):
     client_id = await client_manager.connect(ws)
-    node_instance = get_node_instance()
+    node_instance = get_node()
     try:
         while True:
             data = json.loads(await ws.receive_text())

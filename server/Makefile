@@ -20,11 +20,11 @@ setup-prod:
 
 .PHONY: start-node
 start-node:
-	$(PYTHON_VENV) -m app.main --node-id $(NODE_ID) --port $(PORT) --host $(HOST)
+	$(PYTHON_VENV) -m app.main --node_id $(NODE_ID) --http_port $(PORT) --host $(HOST)
 
 .PHONY: stop-nodes
 stop-nodes:
-	pkill -f "app.main --node-id" || true
+	pkill -f "app.main --node_id" || true
 
 .PHONY: test
 test:

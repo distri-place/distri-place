@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 import grpc.aio as grpc
 
+from app.config import settings
 from app.generated.grpc.messages_pb2 import (
     AppendEntriesRequest,
     AppendEntriesResponse,
@@ -13,9 +14,7 @@ from app.generated.grpc.messages_pb2 import (
     SetPixelResponse,
 )
 from app.generated.grpc.messages_pb2_grpc import RaftNodeServicer, add_RaftNodeServicer_to_server
-
-if TYPE_CHECKING:
-    from app.raft.node import RaftNode
+from app.raft.node import RaftNode
 
 
 class RaftServices(RaftNodeServicer):
@@ -119,11 +118,19 @@ class RaftServices(RaftNodeServicer):
         return SetPixelResponse(status="ok")
 
 
-async def serve(raft_node: "RaftNode") -> None:
+async def create_grpc_server(raft_node: RaftNode):
     server = grpc.server()
     services = RaftServices(raft_node)
     add_RaftNodeServicer_to_server(services, server)
-    listen_addr = f"{raft_node.node_id}:50051"
+    listen_addr = f"{settings.HOST}:{settings.GRPC_PORT}"
     server.add_insecure_port(listen_addr)
     await server.start()
-    await server.wait_for_termination()
+    return server
+
+
+async def run_grpc_server(raft_node: RaftNode):
+    server = await create_grpc_server(raft_node)
+    try:
+        await server.wait_for_termination()
+    finally:
+        await server.stop(0.2)
