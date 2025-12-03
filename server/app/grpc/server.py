@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import grpc.aio as grpc
 
@@ -15,6 +16,8 @@ from app.generated.grpc.messages_pb2 import (
 )
 from app.generated.grpc.messages_pb2_grpc import RaftNodeServicer, add_RaftNodeServicer_to_server
 from app.raft.node import RaftNode
+
+logger = logging.getLogger(__name__)
 
 
 class RaftServices(RaftNodeServicer):
@@ -128,7 +131,7 @@ async def run_grpc_server(raft_node: RaftNode):
     server.add_insecure_port(listen_addr)
 
     await server.start()
-    print(f"gRPC server started on {listen_addr}")
+    logger.info(f"gRPC server started on {listen_addr}")
 
     try:
         await server.wait_for_termination()

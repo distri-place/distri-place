@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import uvicorn
 
@@ -8,15 +9,16 @@ from app.dependencies import set_node_instance
 from app.grpc.server import run_grpc_server
 from app.raft.node import RaftNode
 
+logger = logging.getLogger(__name__)
+
 
 async def main():
-    # Use node_id from settings (which can be overridden via CLI)
     node_id = settings.NODE_ID
 
-    print(f"Starting node {node_id}")
-    print(f"  HTTP port: {settings.HTTP_PORT}")
-    print(f"  gRPC port: {settings.GRPC_PORT}")
-    print(f"  Peers: {settings.PEERS}")
+    logger.info(f"Starting node {node_id}")
+    logger.info(f"  HTTP port: {settings.HTTP_PORT}")
+    logger.info(f"  gRPC port: {settings.GRPC_PORT}")
+    logger.info(f"  Peers: {settings.PEERS}")
 
     # Initialize raft node
     peers = (
