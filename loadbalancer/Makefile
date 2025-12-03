@@ -9,10 +9,17 @@ BACKENDS := localhost:8000 localhost:8001 localhost:8002
 setup:
 	$(PYTHON) -m venv $(VENV)
 	$(PIP) install --upgrade pip
+	$(PIP) install -r requirements-dev.txt
+
+.PHONY: setup-prod
+setup-prod:
+	$(PYTHON) -m venv $(VENV)
+	$(PIP) install --upgrade pip
+	$(PIP) install -r requirements.txt
 
 .PHONY: start
 start:
-	$(PYTHON_VENV) loadbalancer.py $(PORT) $(BACKENDS)
+	$(PYTHON_VENV) -m app.main $(PORT) $(BACKENDS)
 
 .PHONY: stop
 stop:
