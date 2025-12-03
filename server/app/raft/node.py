@@ -43,9 +43,7 @@ class RaftNode:
         self.leader_id: str | None = None
         self.commit_index = 0
         self.log: list[LogEntry] = []
-        self.background_tasks: set[Any] = set()
         self.peers = peers
-        self.clients: list[Any] = []
         self.canvas = init_canvas_image()
 
         # gRPC components - clean separation
@@ -69,14 +67,6 @@ class RaftNode:
         if self.grpc_server:
             await self.grpc_server.stop(0.2)
             await self.grpc_server.wait_for_termination(timeout=0.2)
-
-        # Cancel all background tasks
-        for task in self.background_tasks:
-            task.cancel()
-
-        # Wait for tasks to complete
-        if self.background_tasks:
-            await asyncio.gather(*self.background_tasks, return_exceptions=True)
 
     async def start_election(self):
         if self.is_leader():
