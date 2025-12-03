@@ -2,17 +2,23 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from collections import defaultdict
 from enum import Enum
+from http.client import responses
 from io import BytesIO
 import json
 import random
+<<<<<<< HEAD
 from typing import cast
+=======
+from typing import Any, cast, Coroutine, Iterator
+>>>>>>> f72516d (fixed raft logic for commiting changes to peers)
 
 from PIL import Image
 from typing_extensions import Buffer
 
 from app.client.manager import manager as client_manager
-from app.generated.grpc.messages_pb2 import LogEntry
+from app.generated.grpc.messages_pb2 import LogEntry, AppendEntriesResponse
 from app.grpc.client import RaftClient
 from app.raft.log import RaftLog
 
@@ -39,6 +45,7 @@ class RaftNode:
         self.commit_index = 0
         self.log = RaftLog()
         self.peers = peers
+        self.peer_commit_index: dict[str, int] = defaultdict(int)
         self.canvas = init_canvas_image()
 
         # gRPC components - clean separation
@@ -171,16 +178,43 @@ class RaftNode:
                 data=json.dumps(data).encode("utf-8"),
             )
             self.log.append(entry)
-            await self.grpc_client.broadcast_append_entries(
-                self.peers,
-                self.current_term,
-                self.leader_id or self.node_id,
-                self.log.get_last_log_index(),
-                self.log.get_last_log_term(),
-                [entry],
-                self.commit_index,
-            )
-            # TODO: check responses for majority and commit only if majority succeeded
+
+            threshold = (len(self.peers) + 1) // 2 + 1
+
+            requests = []
+            for peer in self.peers:
+                prev_commit_index = self.peer_commit_index[peer]
+                next_commit_index = prev_commit_index + 1
+                prev_term = 0
+                if prev_commit_index > 0:
+                    prev_term = self.log[prev_commit_index].term
+                requests.append(self.grpc_client.append_entries(
+                    peer,
+                    self.current_term,
+                    self.node_id,
+                    prev_commit_index,
+                    prev_term,
+                    self.log.get_entries_after(next_commit_index),
+                    self.commit_index,
+                ))
+
+            responses = await asyncio.gather(*requests, return_exceptions=True)
+
+            # map each response to its peer and filter out failed responses
+            responses = zip(self.peers, responses)
+            responses = [(peer, resp) for peer, resp in responses if isinstance(resp, AppendEntriesResponse)]
+
+            # update peer last commit indices
+            for peer, resp in responses:
+                self.peer_commit_index[peer] = resp.match_index
+
+            # count self in successful commits
+            success_count = 1 + sum(1 for _, resp in responses if resp.success)
+
+            if success_count < threshold:
+                return False
+
+            # commit the entry if majority have replicated it
             self.commit_index = self.log.get_last_log_index()
             await self.apply_command(entry.command, data)
         else:  # Forward to leader

@@ -13,6 +13,11 @@ class RaftLog:
             return None
         return self.entries[index - 1]
 
+    def get_entries_after(self, index: int) -> list[LogEntry]:
+        if index <= 0 or index > len(self.entries):
+            return []
+        return self.entries[index:]
+
     def get_last_log_index(self) -> int:
         return len(self.entries)
 
