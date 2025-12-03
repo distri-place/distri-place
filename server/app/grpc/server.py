@@ -25,8 +25,13 @@ class RaftServices(RaftNodeServicer):
     async def RequestVote(self, request: RequestVoteRequest, context) -> RequestVoteResponse:
         await self.node.election_timeout.reset()
 
-        if request.term > self.node.raft.current_term:
-            self.node.raft.become_follower(request.term, leader=None)
+        if request.term > self.node.current_term:
+            from app.raft.node import Role
+
+            self.node.role = Role.FOLLOWER
+            self.node.current_term = request.term
+            self.node.voted_for = None
+            self.node.leader_id = None
 
         lli = self.node.last_log_index()
         llt = self.node.last_log_term()
@@ -37,32 +42,35 @@ class RaftServices(RaftNodeServicer):
         )
 
         if (
-            request.term == self.node.raft.current_term
+            request.term == self.node.current_term
             and up_to_date
-            and (self.node.raft.voted_for in (None, request.candidate_id))
+            and (self.node.voted_for in (None, request.candidate_id))
         ):
-            self.node.raft.voted_for = request.candidate_id
+            self.node.voted_for = request.candidate_id
             vote_granted = True
-            self.node.raft.leader_id = None
+            self.node.leader_id = None
 
-        return RequestVoteResponse(term=self.node.raft.current_term, vote_granted=vote_granted)
+        return RequestVoteResponse(term=self.node.current_term, vote_granted=vote_granted)
 
     async def AppendEntries(self, request: AppendEntriesRequest, context) -> AppendEntriesResponse:
-        if request.term < self.node.raft.current_term:
-            return AppendEntriesResponse(
-                term=self.node.raft.current_term, success=False, match_index=-1
-            )
+        if request.term < self.node.current_term:
+            return AppendEntriesResponse(term=self.node.current_term, success=False, match_index=-1)
 
         await self.node.election_timeout.reset()
 
-        if request.term > self.node.raft.current_term or self.node.raft.state_name != "follower":
-            self.node.raft.become_follower(request.term, leader=request.leader_id)
+        if request.term > self.node.current_term or self.node.role.value != "follower":
+            from app.raft.node import Role
+
+            self.node.role = Role.FOLLOWER
+            self.node.current_term = request.term
+            self.node.voted_for = None
+            self.node.leader_id = request.leader_id
         else:
-            self.node.raft.leader_id = request.leader_id
+            self.node.leader_id = request.leader_id
 
         if request.prev_log_index > self.node.last_log_index():
             return AppendEntriesResponse(
-                term=self.node.raft.current_term,
+                term=self.node.current_term,
                 success=False,
                 match_index=self.node.last_log_index(),
             )
@@ -71,14 +79,14 @@ class RaftServices(RaftNodeServicer):
             if idx == 0:
                 return 0
             if 1 <= idx <= self.node.last_log_index():
-                return self.node.raft.log[idx - 1].term
+                return self.node.log[idx - 1].term
             return -1
 
         if request.prev_log_index > 0:
             if get_term_at(request.prev_log_index) != request.prev_log_term:
-                self.node.raft.log = self.node.raft.log[: request.prev_log_index - 1]
+                self.node.log = self.node.log[: request.prev_log_index - 1]
                 return AppendEntriesResponse(
-                    term=self.node.raft.current_term,
+                    term=self.node.current_term,
                     success=False,
                     match_index=self.node.last_log_index(),
                 )
@@ -86,18 +94,18 @@ class RaftServices(RaftNodeServicer):
         for entry in request.entries:
             if entry.index <= self.node.last_log_index():
                 if get_term_at(entry.index) != entry.term:
-                    self.node.raft.log = self.node.raft.log[: entry.index - 1]
-                    self.node.raft.log.append(entry)
+                    self.node.log = self.node.log[: entry.index - 1]
+                    self.node.log.append(entry)
                     await self.node.apply_command(entry.command, entry.data)
             else:
-                self.node.raft.log.append(entry)
+                self.node.log.append(entry)
                 await self.node.apply_command(entry.command, entry.data)
 
-        if request.leader_commit > self.node.raft.commit_index:
-            self.node.raft.commit_index = min(request.leader_commit, self.node.last_log_index())
+        if request.leader_commit > self.node.commit_index:
+            self.node.commit_index = min(request.leader_commit, self.node.last_log_index())
 
         return AppendEntriesResponse(
-            term=self.node.raft.current_term,
+            term=self.node.current_term,
             success=True,
             match_index=self.node.last_log_index(),
         )
@@ -106,9 +114,7 @@ class RaftServices(RaftNodeServicer):
         return HealthCheckResponse(node_id=self.node.node_id, status=await self.node.get_status())
 
     async def SetPixel(self, request: SetPixelRequest, context) -> SetPixelResponse:
-        assert self.node.raft.leader_id == self.node.node_id, (
-            "SetPixel can only be called on the leader"
-        )
+        assert self.node.leader_id == self.node.node_id, "SetPixel can only be called on the leader"
         await self.node.set_pixel(request.x, request.y, request.color, request.user_id)
         return SetPixelResponse(status="ok")
 
