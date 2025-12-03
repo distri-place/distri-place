@@ -35,7 +35,6 @@ class RaftNode:
     def __init__(self, node_id: str, peers: list[str]):
         self.node_id = node_id
         self.raft = RaftConsensus(node_id)
-        self.background_tasks: set[Any] = set()
         self.peers = peers
         self.clients: list[Any] = []
         self.canvas = init_canvas_image()
@@ -47,6 +46,28 @@ class RaftNode:
             random.uniform(1.5, 3.0), self.start_election, start=False
         )
         self.heartbeat = AsyncTicker(1.0, self.send_heartbeat_once, start=False)
+
+    async def start(self):
+        self.election_timeout.start()
+        self.heartbeat.start()
+
+    async def stop(self):
+        await self.election_timeout.stop()
+        await self.heartbeat.stop()
+
+        # Close gRPC connections
+        await self.grpc_client.close_all()
+        if self.grpc_server:
+            await self.grpc_server.stop(0.2)
+            await self.grpc_server.wait_for_termination(timeout=0.2)
+
+        # Cancel all background tasks
+        for task in self.background_tasks:
+            task.cancel()
+
+        # Wait for tasks to complete
+        if self.background_tasks:
+            await asyncio.gather(*self.background_tasks, return_exceptions=True)
 
     async def start_election(self):
         if self.is_leader():
@@ -87,34 +108,6 @@ class RaftNode:
             self.raft.commit_index,
         )
 
-    async def start(self):
-        self.grpc_server = await create_grpc_server(self)
-        await self.peers_health_check()
-
-        # Initialize Raft consensus
-        # TODO: Join cluster if peers exist
-        await self.start_election()
-        self.election_timeout.start()
-        self.heartbeat.start()
-
-    async def stop(self):
-
-        await self.election_timeout.stop()
-        await self.heartbeat.stop()
-
-        # Close gRPC connections
-        await self.grpc_client.close_all()
-        if self.grpc_server:
-            await self.grpc_server.stop(0.2)
-            await self.grpc_server.wait_for_termination(timeout=0.2)
-
-        # Cancel all background tasks
-        for task in self.background_tasks:
-            task.cancel()
-
-        # Wait for tasks to complete
-        if self.background_tasks:
-            await asyncio.gather(*self.background_tasks, return_exceptions=True)
 
 
     def is_leader(self) -> bool:
