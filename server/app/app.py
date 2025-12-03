@@ -1,4 +1,3 @@
-import dataclasses
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -7,13 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import app.node
 from app.api.client.routes import router as client_router
 from app.api.ws.routes import router as ws_router
-
-@dataclasses.dataclass
-class SetPixelArg:
-    x: int
-    y: int
-    value: str
-
 
 node_instance = app.node.get_node_instance()
 

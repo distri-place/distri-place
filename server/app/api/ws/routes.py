@@ -1,5 +1,7 @@
 import asyncio
 import json
+import os
+import signal
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.client.manager import manager as client_manager
@@ -35,6 +37,8 @@ async def websocket_endpoint(ws: WebSocket):
                             "status": await node_instance.get_status()
                         },
                     })
+                case 'crash':
+                    os.kill(os.getpid(), signal.SIGTERM)
     except asyncio.CancelledError:
         pass
     except WebSocketDisconnect:

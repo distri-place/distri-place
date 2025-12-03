@@ -32,15 +32,6 @@ from app.raft.consensus import RaftConsensus
 from app.utils.timers import AsyncTicker
 
 
-def make_entry(term: int, index: int, command: str, data: Any) -> LogEntry:
-    return LogEntry(
-        term=term,
-        index=index,
-        command=command,
-        data=json.dumps(data).encode('utf-8')
-    )
-
-
 def init_canvas_image(width: int = 64, height: int = 64, color: tuple[int, int, int] = (255, 255, 255)) -> Image.Image:
     return Image.new("RGB", (width, height), color)
 
@@ -49,6 +40,7 @@ def log_error(message: str):
     print(f"\x1b[38;5;{1}m", end="", flush=True)
     print(f"[ERROR] {message}", end="", flush=True)
     print("\x1b[0m", flush=True)
+
 
 class Node(RaftNodeServicer):
     def __init__(self, node_id: str, peers: list[str]):
@@ -72,16 +64,17 @@ class Node(RaftNodeServicer):
         return self._stubs[node_id]
 
     async def peer_request_vote(self, node: str, term: int, last_log_index: int,
-                                last_log_term: int) -> RequestVoteResponse:
+                                last_log_term: int) -> RequestVoteResponse | None:
         try:
-            return await self.stub(node).RequestVote(RequestVoteRequest(
-                term=term,
-                candidate_id=self.node_id,
-                last_log_index=last_log_index,
-                last_log_term=last_log_term,
-            ))
+            with grpc.insecure_channel(f"{node}:50051") as channel:
+                return RaftNodeStub(channel).RequestVote(RequestVoteRequest(
+                    term=term,
+                    candidate_id=self.node_id,
+                    last_log_index=last_log_index,
+                    last_log_term=last_log_term,
+                ))
         except Exception as e:
-            raise
+            return None
 
     async def start_election(self):
         if self.is_leader(): return
@@ -229,7 +222,7 @@ class Node(RaftNodeServicer):
             # TODO: check responses for majority and commit only if majority succeeded
             self.raft.commit_index = self.last_log_index()
             await self.apply_command(entry.command, data)
-        else: # Forward to leader
+        else:  # Forward to leader
             async with grpc.insecure_channel(f"{self.raft.leader_id}:50051") as channel:
                 req = SetPixelRequest(x=x, y=y, color=color, user_id=user_id)
                 await RaftNodeStub(channel).SetPixel(req)
@@ -345,7 +338,9 @@ class Node(RaftNodeServicer):
 
         )
 
+
 _instance: Node | None = None
+
 
 def get_node_instance() -> Node:
     global _instance

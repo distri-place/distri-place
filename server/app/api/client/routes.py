@@ -30,6 +30,10 @@ async def set_pixel(request: SetPixelRequest):
         )
     }
 
+@router.get("/crash")
+async def set_pixel():
+    exit(1)
+
 
 @router.get("/pixel/{x}/{y}")
 async def get_pixel(x: int, y: int):

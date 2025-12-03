@@ -48,6 +48,7 @@
 <body>
 <div class="row">
     <button id="connect">Connect</button>
+    <button id="crash">Crash node</button>
     <label>Color <input id="color" type="color" value="#ff0000"/></label>
     <span id="status" class="small">disconnected</span>
 </div>
@@ -60,6 +61,7 @@
     (() => {
         const userId = crypto.randomUUID();
         const connectBtn = document.getElementById('connect');
+        const crashBtn = document.getElementById('crash');
         const colorInput = document.getElementById('color');
         const canvas = document.getElementById('board');
         const ctx = canvas.getContext('2d', {willReadFrequently: true});
@@ -187,9 +189,16 @@
                     resolve(ws)
                     ws.send(JSON.stringify({
                         type: 'connect',
-                        content: { user_id: userId }
+                        content: {user_id: userId}
                     }))
                 };
+
+                crashBtn.addEventListener('click', () => {
+                    console.log("crash node");
+                    ws.send(JSON.stringify({
+                        type: 'crash',
+                    }))
+                });
 
                 ws.onclose = () => {
                     setIsConnected(false)
@@ -217,7 +226,7 @@
                             return;
                         case 'connected':
                             const canvasData = msg.content.canvas;
-                            const { id: nodeId, role } = msg.content.node;
+                            const {id: nodeId, role} = msg.content.node;
                             appendLog(`<- connected: node=${nodeId} (${role})`);
                             const img = new Image();
                             img.onload = () => ctx.drawImage(img, 0, 0)
@@ -256,6 +265,8 @@
             else connect();
 
         });
+
+
     })();
 </script>
 </body>

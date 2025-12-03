@@ -23,6 +23,8 @@ services:
       - NODE_ID=node-1
       - PORT=8000
       - PEERS=node-2,node-3
+    volumes:
+      - ./server:/app:ro
     networks:
       - distri-place-network
 
@@ -33,6 +35,8 @@ services:
       - NODE_ID=node-2
       - PORT=8000
       - PEERS=node-1,node-3
+    volumes:
+      - ./server:/app:ro
     networks:
       - distri-place-network
 
@@ -43,6 +47,8 @@ services:
       - NODE_ID=node-3
       - PORT=8000
       - PEERS=node-1,node-2
+    volumes:
+      - ./server:/app:ro
     networks:
       - distri-place-network
 
