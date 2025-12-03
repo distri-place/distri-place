@@ -4,15 +4,10 @@ import asyncio
 import base64
 from collections import defaultdict
 from enum import Enum
-from http.client import responses
 from io import BytesIO
 import json
 import random
-<<<<<<< HEAD
 from typing import cast
-=======
-from typing import Any, cast, Coroutine, Iterator
->>>>>>> f72516d (fixed raft logic for commiting changes to peers)
 
 from PIL import Image
 from typing_extensions import Buffer
