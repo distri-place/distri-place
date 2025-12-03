@@ -47,7 +47,6 @@
 </head>
 <body>
 <div class="row">
-    <input id="wsurl" type="text" placeholder="ws://localhost:8080/ws" value="ws://localhost:8080/ws"/>
     <button id="connect">Connect</button>
     <label>Color <input id="color" type="color" value="#ff0000"/></label>
     <span id="status" class="small">disconnected</span>
@@ -55,15 +54,20 @@
 
 <canvas id="board" width="64" height="64"></canvas>
 <div class="small">Tip: Shift-click picks the color from the pixel under the cursor.</div>
+<div id="log"></div>
 
 <script>
     (() => {
-        const wsInput = document.getElementById('wsurl');
+        const userId = crypto.randomUUID();
         const connectBtn = document.getElementById('connect');
         const colorInput = document.getElementById('color');
         const canvas = document.getElementById('board');
         const ctx = canvas.getContext('2d', {willReadFrequently: true});
         const statusEl = document.getElementById('status');
+        const logEl = document.getElementById('log');
+        const PING_INTERVAL = 5000;
+        const RECONNECT_DELAY = 500;
+        const PATIENCE = 3000;
 
         // visual scale (CSS-only) so pixels look big & crisp
         const SCALE = 8;
@@ -74,35 +78,60 @@
         let W = 64, H = 64;
         let isConnected = false;
 
+        function setIsConnected(v) {
+            if (v === isConnected) return;
+            isConnected = v;
+            setStatus(v ? 'connected' : 'disconnected');
+            connectBtn.textContent = v ? 'Disconnect' : 'Connect';
+        }
+
+        function appendLog(text) {
+            const p = document.createElement('div');
+            p.textContent = text;
+            logEl.appendChild(p);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        /**
+         * Update status text
+         * @param {string} text
+         */
         function setStatus(text) {
             statusEl.textContent = text;
+            appendLog(text);
         }
 
-        function toHex(colorInt) {
-            const s = colorInt.toString(16).padStart(6, '0');
-            return '#' + s;
+
+        /**
+         * Send a pixel set request to the server
+         * @param {number} x - x coordinate
+         * @param {number} y - y coordinate
+         * @param {string} color - hex string like "#ff0000"
+         */
+        async function setPixel(x, y, color) {
+            if (!isConnected) connect().then()
+            await fetch("/client/pixel", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    x: x,
+                    y: y,
+                    color: color
+                })
+            });
         }
 
+        /**
+         * Convert hex color string to integer
+         * @param {string} hex - hex color string like "#ff0000"
+         * @returns {number} - integer representation of the color
+         */
         function fromHex(hex) {
             hex = hex.replace('#', '');
             return parseInt(hex, 16) >>> 0;
-        }
-
-        function drawBoard(board) {
-            // board is H x W of ints 0xRRGGBB
-            const img = ctx.createImageData(W, H);
-            let p = 0;
-            for (let y = 0; y < H; y++) {
-                const row = board[y];
-                for (let x = 0; x < W; x++) {
-                    const c = row[x] >>> 0;
-                    img.data[p++] = (c >> 16) & 255; // R
-                    img.data[p++] = (c >> 8) & 255;  // G
-                    img.data[p++] = c & 255;         // B
-                    img.data[p++] = 255;             // A
-                }
-            }
-            ctx.putImageData(img, 0, 0);
         }
 
         function setPixelLocal(x, y, color) {
@@ -115,84 +144,118 @@
         }
 
         function pickPixel(x, y) {
-            const d = ctx.getImageData(x, y, 1, 1).data;
-            colorInput.value = `#${[d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('')}`;
+            const data = ctx.getImageData(x, y, 1, 1);
+            const [R, G, B] = data.map(v => v.toString(16).padStart(2, '0'))
+            colorInput.value = `#${R}${G}${B}`;
         }
 
+        /**
+         * Get canvas pixel coordinates from mouse event
+         * @param {MouseEvent} evt
+         * @returns {[number, number]} - [x, y] coordinates
+         */
         function canvasXY(evt) {
             const rect = canvas.getBoundingClientRect();
             const cx = Math.floor((evt.clientX - rect.left) / (rect.width / W));
             const cy = Math.floor((evt.clientY - rect.top) / (rect.height / H));
-            // clamp
             return [Math.max(0, Math.min(W - 1, cx)), Math.max(0, Math.min(H - 1, cy))];
         }
 
         canvas.addEventListener('click', (evt) => {
-            if (!isConnected) return;
             const [x, y] = canvasXY(evt);
-            if (evt.shiftKey) {
-                pickPixel(x, y);
-                return;
-            }
-            const color = fromHex(colorInput.value);
-            // optimistic local paint is possible, but we’ll wait for commit updates
-            ws.send(JSON.stringify({type: 'set', x, y, color}));
+            if (evt.shiftKey) pickPixel(x, y);
+            else setPixel(x, y, colorInput.value);
         });
 
         function connect() {
+            return new Promise((resolve) => {
+                disconnect()
+                ws = new WebSocket("/ws/");
+                setStatus('connecting…');
+
+                let timeout = undefined;
+
+                function ping() {
+                    ws.send(JSON.stringify({type: 'ping'}));
+                    appendLog('ping ->');
+                    timeout = setTimeout(disconnect, PATIENCE);
+                }
+
+                ws.onopen = () => {
+                    setIsConnected(true)
+                    timeout = setTimeout(ping, PING_INTERVAL);
+                    resolve(ws)
+                    ws.send(JSON.stringify({
+                        type: 'connect',
+                        content: { user_id: userId }
+                    }))
+                };
+
+                ws.onclose = () => {
+                    setIsConnected(false)
+                    setStatus('disconnected');
+                    clearTimeout(timeout);
+                };
+
+                ws.onerror = () => setStatus('error (see console)');
+
+                ws.onmessage = (ev) => {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(ping, PING_INTERVAL);
+
+                    let msg;
+                    try {
+                        msg = JSON.parse(ev.data);
+                    } catch (e) {
+                        setStatus(`error: invalid message, message=${ev.data}`);
+                        return;
+                    }
+
+                    switch (msg.type) {
+                        case 'error':
+                            setStatus(`error: ${msg.message || '?'}`);
+                            return;
+                        case 'connected':
+                            const canvasData = msg.content.canvas;
+                            const { id: nodeId, role } = msg.content.node;
+                            appendLog(`<- connected: node=${nodeId} (${role})`);
+                            const img = new Image();
+                            img.onload = () => ctx.drawImage(img, 0, 0)
+                            img.src = "data:image/png;base64," + canvasData
+                            return;
+                        case 'pixel':
+                            const {x, y, color, user_id} = msg.content;
+                            appendLog(`<- pixel set: (${x}, ${y}) = ${color} by ${user_id}${user_id === userId ? ' (you)' : ''}`);
+                            setPixelLocal(x, y, fromHex(color));
+                            return;
+                        case 'pong':
+                            appendLog('<- pong');
+                            return;
+                        default:
+                            setStatus(`error: unknown message type "${msg.type}"`);
+                            return;
+                    }
+                }
+            })
+
+        }
+
+        function disconnect(reconnect = false) {
             if (ws) {
                 ws.close();
                 ws = null;
             }
-            const url = wsInput.value.trim();
-            if (!url) return;
-
-            ws = new WebSocket(url);
-            setStatus('connecting…');
-
-            ws.onopen = () => {
-                isConnected = true;
-                setStatus('connected');
-            };
-
-            ws.onclose = () => {
-                isConnected = false;
-                setStatus('disconnected');
-            };
-
-            ws.onerror = () => setStatus('error (see console)');
-
-            ws.onmessage = (ev) => {
-                let msg;
-                try {
-                    msg = JSON.parse(ev.data);
-                } catch {
-                    return;
-                }
-
-                if (msg.type === 'hello') {
-                    // initial snapshot
-                    W = msg.w || W;
-                    H = msg.h || H;
-                    if (canvas.width !== W || canvas.height !== H) {
-                        canvas.width = W;
-                        canvas.height = H;
-                        canvas.style.width = (W * SCALE) + 'px';
-                        canvas.style.height = (H * SCALE) + 'px';
-                    }
-                    if (Array.isArray(msg.board)) drawBoard(msg.board);
-                    setStatus(`connected (node=${msg.node}${msg.leader ? ', leader=' + msg.leader : ''})`);
-                } else if (msg.type === 'pixel') {
-                    setPixelLocal(msg.x, msg.y, msg.color >>> 0);
-                } else if (msg.type === 'redirect') {
-                    // Server is follower; you can manually connect to the leader if you know its WS address.
-                    // The demo server only gives the leader id, not a WS URL.
-                    setStatus(`follower: try connecting to the leader (id=${msg.leader || '?'})`);
-                }
-            };
+            setIsConnected(false);
+            if (reconnect) setTimeout(connect, RECONNECT_DELAY);
         }
 
-        connectBtn.addEventListener('click', connect);
+        connect()
+
+        connectBtn.addEventListener('click', () => {
+            if (isConnected) disconnect()
+            else connect();
+
+        });
     })();
 </script>
 </body>

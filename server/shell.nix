@@ -4,15 +4,20 @@
 
 pkgs.mkShell {
   buildInputs = with pkgs; [
-    python311
+    (python311.withPackages (
+      ps: with ps; [
+        grpcio-tools
+      ]
+    ))
     gnumake
-    python311Packages.grpcio-tools
   ];
 
   shellHook = ''
-    make setup
     if [[ -d venv ]]; then
-    source venv/bin/activate
+        source venv/bin/activate
+    else
+        make setup
+        source venv/bin/activate
     fi
   '';
 }

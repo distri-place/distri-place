@@ -1,6 +1,8 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from app.raft.node import get_node_instance
+
 router = APIRouter()
 
 
@@ -18,7 +20,14 @@ async def get_initial_pixels():
 
 @router.post("/pixel")
 async def set_pixel(request: SetPixelRequest):
-    return {"success": True}
+    return {
+        "success": await get_node_instance().set_pixel(
+            request.x,
+            request.y,
+            request.color,
+            request.user_id,
+        )
+    }
 
 
 @router.get("/pixel/{x}/{y}")

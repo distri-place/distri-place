@@ -23,6 +23,7 @@ services:
     environment:
       - NODE_ID=node-1
       - PORT=8000
+      - PEERS=node-2,node-3
     networks:
       - distri-place-network
 
@@ -32,6 +33,7 @@ services:
     environment:
       - NODE_ID=node-2
       - PORT=8000
+      - PEERS=node-1,node-3
     networks:
       - distri-place-network
 
@@ -41,6 +43,7 @@ services:
     environment:
       - NODE_ID=node-3
       - PORT=8000
+      - PEERS=node-1,node-2
     networks:
       - distri-place-network
 

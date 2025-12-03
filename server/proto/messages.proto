@@ -1,11 +1,23 @@
 syntax = "proto3";
 
-package raft;
+package app.generated.grpc;
 
 service RaftNode {
   rpc RequestVote(RequestVoteRequest) returns (RequestVoteResponse);
   rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse);
   rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+  rpc SetPixel(SetPixelRequest) returns (SetPixelResponse);
+}
+
+message SetPixelRequest {
+  int64 x = 1;
+  int64 y = 2;
+  string color = 3;
+  string user_id = 4;
+}
+
+message SetPixelResponse {
+  string status = 1;
 }
 
 message RequestVoteRequest {
