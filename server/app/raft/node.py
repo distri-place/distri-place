@@ -6,7 +6,7 @@ from enum import Enum
 from io import BytesIO
 import json
 import random
-from typing import Any, cast
+from typing import cast
 
 from PIL import Image
 from typing_extensions import Buffer
@@ -14,16 +14,13 @@ from typing_extensions import Buffer
 from app.client.manager import manager as client_manager
 from app.generated.grpc.messages_pb2 import LogEntry
 from app.grpc.client import RaftClient
+from app.raft.log import RaftLog
 
 
 class Role(Enum):
     FOLLOWER = "follower"
     CANDIDATE = "candidate"
     LEADER = "leader"
-
-
-def make_entry(term: int, index: int, command: str, data: Any) -> LogEntry:
-    return LogEntry(term=term, index=index, command=command, data=json.dumps(data).encode("utf-8"))
 
 
 def init_canvas_image(
@@ -40,7 +37,7 @@ class RaftNode:
         self.voted_for: str | None = None
         self.leader_id: str | None = None
         self.commit_index = 0
-        self.log: list[LogEntry] = []
+        self.log = RaftLog()
         self.peers = peers
         self.canvas = init_canvas_image()
 
@@ -72,7 +69,7 @@ class RaftNode:
         term = self.current_term
         majority = (len(self.peers) + 1) // 2 + 1
 
-        lli, llt = self.last_log_index(), self.last_log_term()
+        lli, llt = self.log.get_last_log_index(), self.log.get_last_log_term()
 
         if self.current_term != term or self.role != Role.CANDIDATE:
             return
@@ -100,8 +97,8 @@ class RaftNode:
             self.peers,
             self.current_term,
             self.node_id,
-            self.last_log_index(),
-            self.last_log_term(),
+            self.log.get_last_log_index(),
+            self.log.get_last_log_term(),
             [],
             self.commit_index,
         )
@@ -152,8 +149,8 @@ class RaftNode:
             node,
             self.current_term,
             self.leader_id or self.node_id,
-            self.last_log_index(),
-            self.last_log_term(),
+            self.log.get_last_log_index(),
+            self.log.get_last_log_term(),
             entries,
             self.commit_index,
         )
@@ -163,19 +160,13 @@ class RaftNode:
     async def peer_health_check(self, node: str):
         return await self.grpc_client.health_check(node)
 
-    def last_log_index(self):
-        return len(self.log)
-
-    def last_log_term(self):
-        return 0 if len(self.log) == 0 else self.log[-1].term
-
     async def set_pixel(self, x: int, y: int, color: str, user_id: str) -> bool:
         # Only leader can set pixels
         if self.is_leader():
             data = {"x": x, "y": y, "color": color, "user_id": user_id}
             entry = LogEntry(
                 term=self.current_term,
-                index=self.last_log_index() + 1,
+                index=self.log.get_last_log_index() + 1,
                 command="pixel",
                 data=json.dumps(data).encode("utf-8"),
             )
@@ -184,13 +175,13 @@ class RaftNode:
                 self.peers,
                 self.current_term,
                 self.leader_id or self.node_id,
-                self.last_log_index(),
-                self.last_log_term(),
+                self.log.get_last_log_index(),
+                self.log.get_last_log_term(),
                 [entry],
                 self.commit_index,
             )
             # TODO: check responses for majority and commit only if majority succeeded
-            self.commit_index = self.last_log_index()
+            self.commit_index = self.log.get_last_log_index()
             await self.apply_command(entry.command, data)
         else:  # Forward to leader
             if self.leader_id:

@@ -35,8 +35,8 @@ class RaftServices(RaftNodeServicer):
             self.node.voted_for = None
             self.node.leader_id = None
 
-        lli = self.node.last_log_index()
-        llt = self.node.last_log_term()
+        lli = self.node.log.get_last_log_index()
+        llt = self.node.log.get_last_log_term()
 
         vote_granted = False
         up_to_date = request.last_log_term > llt or (
@@ -70,33 +70,29 @@ class RaftServices(RaftNodeServicer):
         else:
             self.node.leader_id = request.leader_id
 
-        if request.prev_log_index > self.node.last_log_index():
+        if request.prev_log_index > self.node.log.get_last_log_index():
             return AppendEntriesResponse(
                 term=self.node.current_term,
                 success=False,
-                match_index=self.node.last_log_index(),
+                match_index=self.node.log.get_last_log_index(),
             )
 
         def get_term_at(idx: int) -> int:
-            if idx == 0:
-                return 0
-            if 1 <= idx <= self.node.last_log_index():
-                return self.node.log[idx - 1].term
-            return -1
+            return self.node.log.get_term_at_index(idx)
 
         if request.prev_log_index > 0:
             if get_term_at(request.prev_log_index) != request.prev_log_term:
-                self.node.log = self.node.log[: request.prev_log_index - 1]
+                self.node.log.truncate_from(request.prev_log_index)
                 return AppendEntriesResponse(
                     term=self.node.current_term,
                     success=False,
-                    match_index=self.node.last_log_index(),
+                    match_index=self.node.log.get_last_log_index(),
                 )
 
         for entry in request.entries:
-            if entry.index <= self.node.last_log_index():
+            if entry.index <= self.node.log.get_last_log_index():
                 if get_term_at(entry.index) != entry.term:
-                    self.node.log = self.node.log[: entry.index - 1]
+                    self.node.log.truncate_from(entry.index)
                     self.node.log.append(entry)
                     await self.node.apply_command(entry.command, entry.data)
             else:
@@ -104,12 +100,12 @@ class RaftServices(RaftNodeServicer):
                 await self.node.apply_command(entry.command, entry.data)
 
         if request.leader_commit > self.node.commit_index:
-            self.node.commit_index = min(request.leader_commit, self.node.last_log_index())
+            self.node.commit_index = min(request.leader_commit, self.node.log.get_last_log_index())
 
         return AppendEntriesResponse(
             term=self.node.current_term,
             success=True,
-            match_index=self.node.last_log_index(),
+            match_index=self.node.log.get_last_log_index(),
         )
 
     async def HealthCheck(self, request: HealthCheckRequest, context) -> HealthCheckResponse:
