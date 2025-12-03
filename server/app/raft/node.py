@@ -15,7 +15,6 @@ from typing_extensions import Buffer
 from app.client.manager import manager as client_manager
 from app.generated.grpc.messages_pb2 import LogEntry
 from app.grpc.client import RaftClient
-from app.utils.timers import AsyncTicker
 
 
 class Role(Enum):
@@ -49,18 +48,18 @@ class RaftNode:
         # gRPC components - clean separation
         self.grpc_client = RaftClient(node_id)
         self.grpc_server: grpc.Server | None = None
-        self.election_timeout = AsyncTicker(
-            random.uniform(1.5, 3.0), self.start_election, start=False
-        )
-        self.heartbeat = AsyncTicker(1.0, self.send_heartbeat_once, start=False)
+        self.election_timeout_task: asyncio.Task | None = None
+        self.heartbeat_task: asyncio.Task | None = None
 
     async def start(self):
-        self.election_timeout.start()
-        self.heartbeat.start()
+        await self._start_election_timeout()
+        await self._start_heartbeat()
 
     async def stop(self):
-        await self.election_timeout.stop()
-        await self.heartbeat.stop()
+        if self.election_timeout_task:
+            self.election_timeout_task.cancel()
+        if self.heartbeat_task:
+            self.heartbeat_task.cancel()
 
         # Close gRPC connections
         await self.grpc_client.close_all()
@@ -75,7 +74,7 @@ class RaftNode:
         self.current_term += 1
         self.voted_for = self.node_id
         self.leader_id = None
-        await self.election_timeout.reset()
+        await self._reset_election_timeout()
         term = self.current_term
         majority = (len(self.peers) + 1) // 2 + 1
 
@@ -112,6 +111,35 @@ class RaftNode:
             [],
             self.commit_index,
         )
+
+    async def _start_election_timeout(self):
+        if self.election_timeout_task:
+            self.election_timeout_task.cancel()
+        self.election_timeout_task = asyncio.create_task(self._election_timeout_loop())
+
+    async def _start_heartbeat(self):
+        if self.heartbeat_task:
+            self.heartbeat_task.cancel()
+        self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
+    async def _reset_election_timeout(self):
+        await self._start_election_timeout()
+
+    async def _election_timeout_loop(self):
+        while True:
+            try:
+                await asyncio.sleep(random.uniform(1.5, 3.0))
+                await self.start_election()
+            except asyncio.CancelledError:
+                return
+
+    async def _heartbeat_loop(self):
+        while True:
+            try:
+                await asyncio.sleep(1.0)
+                await self.send_heartbeat_once()
+            except asyncio.CancelledError:
+                return
 
     def is_leader(self) -> bool:
         return self.role == Role.LEADER

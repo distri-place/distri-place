@@ -23,7 +23,7 @@ class RaftServices(RaftNodeServicer):
         self.node = raft_node
 
     async def RequestVote(self, request: RequestVoteRequest, context) -> RequestVoteResponse:
-        await self.node.election_timeout.reset()
+        await self.node._reset_election_timeout()
 
         if request.term > self.node.current_term:
             from app.raft.node import Role
@@ -56,7 +56,7 @@ class RaftServices(RaftNodeServicer):
         if request.term < self.node.current_term:
             return AppendEntriesResponse(term=self.node.current_term, success=False, match_index=-1)
 
-        await self.node.election_timeout.reset()
+        await self.node._reset_election_timeout()
 
         if request.term > self.node.current_term or self.node.role.value != "follower":
             from app.raft.node import Role
