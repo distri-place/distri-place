@@ -104,8 +104,7 @@ class RaftClient:
             )
             for peer in peers
         ]
-        results = await asyncio.gather(*requests, return_exceptions=True)
-        return [resp for resp in results if isinstance(resp, AppendEntriesResponse)]
+        return await asyncio.gather(*requests, return_exceptions=True)
 
     async def broadcast_health_checks(self, peers: list[str]) -> list[HealthCheckResponse]:
         requests = [self.health_check(peer) for peer in peers]
