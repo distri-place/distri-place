@@ -29,10 +29,6 @@ def init_canvas_image(
     return Image.new("RGB", (width, height), color)
 
 
-def log_error(message: str):
-    print(f"\x1b[38;5;{1}m", end="", flush=True)
-    print(f"[ERROR] {message}", end="", flush=True)
-    print("\x1b[0m", flush=True)
 
 
 class RaftNode:
@@ -60,7 +56,6 @@ class RaftNode:
         term = self.raft.current_term
         majority = (len(self.peers) + 1) // 2 + 1
 
-        print(f"{self.node_id} requesting votes from peers...")
 
         lli, llt = self.last_log_index(), self.last_log_term()
 
@@ -73,14 +68,10 @@ class RaftNode:
         higher_terms = [resp for resp in results if resp.term > term]
         if higher_terms:
             resp = higher_terms[0]
-            print(f"[{self.node_id}] Stepping down from candidate due to higher term {resp.term}")
             self.raft.become_follower(resp.term, leader=None)
             return
         votes = 1 + len([resp for resp in results if resp.vote_granted])
         if votes >= majority:
-            print(
-                f"[{self.node_id}] Elected leader for term {self.raft.current_term} with {votes} votes"
-            )
             self.raft.become_leader()
 
     async def send_heartbeat_once(self):
@@ -97,22 +88,16 @@ class RaftNode:
         )
 
     async def start(self):
-        print(f"Node {self.node_id} starting up...")
-        print(f"Node {self.node_id} starting grpc server")
         self.grpc_server = await create_grpc_server(self)
-        print(f"Node {self.node_id} gRPC server started on {self.node_id}:50051")
         await self.peers_health_check()
 
         # Initialize Raft consensus
-        print(f"Node {self.node_id} initializing Raft consensus (state: {self.raft.state_name})")
         # TODO: Join cluster if peers exist
         await self.start_election()
         self.election_timeout.start()
         self.heartbeat.start()
-        print(f"Node {self.node_id} is now active")
 
     async def stop(self):
-        print(f"Node {self.node_id} shutting down...")
 
         await self.election_timeout.stop()
         await self.heartbeat.stop()
@@ -131,7 +116,6 @@ class RaftNode:
         if self.background_tasks:
             await asyncio.gather(*self.background_tasks, return_exceptions=True)
 
-        print(f"Node {self.node_id} stopped")
 
     def is_leader(self) -> bool:
         return self.node_id == self.raft.leader_id
@@ -146,7 +130,6 @@ class RaftNode:
         return base64.b64encode(png_bytes).decode("ascii")
 
     async def node_append_entries(self, node: str, entries: list[LogEntry]) -> None:
-        print(f"{self.node_id} -> {node}.AppendEntries(...)")
         resp = await self.grpc_client.append_entries(
             node,
             self.raft.current_term,
@@ -157,12 +140,8 @@ class RaftNode:
             self.raft.commit_index,
         )
         if not resp.success:
-            print(
-                f"AppendEntries to {node} failed: term={resp.term}, match_index={resp.match_index}"
-            )
 
     async def peer_health_check(self, node: str):
-        print(f"{self.node_id} -> {node}.HealthCheck(...)")
         return await self.grpc_client.health_check(node)
 
     def last_log_index(self):
@@ -212,7 +191,6 @@ class RaftNode:
             try:
                 data = json.loads(data.decode("utf-8"))
             except json.JSONDecodeError as e:
-                log_error(f"Node {self.node_id}: failed to decode command data: {e}")
                 data = None
         match command:
             case "pixel" if isinstance(data, dict):
@@ -222,7 +200,6 @@ class RaftNode:
                 )
                 await client_manager.broadcast("pixel", data)
             case _:
-                print(f"Node {self.node_id} received unknown command: {command}")
 
 
 _instance: RaftNode | None = None

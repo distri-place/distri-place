@@ -25,7 +25,6 @@ class RaftConsensus:
         self.leader_id = None
 
     def become_follower(self, term: int, leader: str | None = None):
-        print(f"Node {self.node_id} becoming follower for term {term} with leader {leader}")
         self.current_term = term
         self.voted_for = None
         self.state_handler = RaftFollower(self.node_id)
