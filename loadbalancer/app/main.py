@@ -1,10 +1,15 @@
 import http.server
+import logging
 import socket
 import socketserver
 import sys
 import threading
 
 import requests
+
+from app.utils import logger as _  # noqa: F401 - Import to configure logging
+
+logger = logging.getLogger(__name__)
 
 
 class SimpleLoadBalancer:
