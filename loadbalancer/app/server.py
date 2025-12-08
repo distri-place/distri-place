@@ -1,9 +1,9 @@
 import logging
 
-from balancer.pool import ServerPool
-from config import DEFAULT_SERVERS, settings
-from handlers.http import HTTPHandler
-from handlers.websocket import WebSocketHandler
+from app.balancer.pool import ServerPool
+from app.config import DEFAULT_SERVERS, settings
+from app.handlers.http import HTTPHandler
+from app.handlers.websocket import WebSocketHandler
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware

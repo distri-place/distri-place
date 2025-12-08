@@ -1,4 +1,4 @@
-from config import settings
+from app.config import settings
 import uvicorn
 
 from app.utils import logger as _  # noqa: F401 - Import to configure logging
@@ -6,7 +6,7 @@ from app.utils import logger as _  # noqa: F401 - Import to configure logging
 
 def main():
     uvicorn.run(
-        "server:app",
+        "app.server:app",
         host="0.0.0.0",
         port=settings.PORT,
         log_level=settings.LOG_LEVEL.lower(),

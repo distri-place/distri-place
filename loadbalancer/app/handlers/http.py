@@ -1,9 +1,10 @@
 import logging
 
-from balancer.pool import ServerPool
 import httpx
 from starlette.requests import Request
 from starlette.responses import Response
+
+from app.balancer.pool import ServerPool
 
 logger = logging.getLogger(__name__)
 
@@ -40,4 +41,3 @@ class HTTPHandler:
             )
         except httpx.RequestError as e:
             return Response(f"backend error: {e}", status_code=502)
-

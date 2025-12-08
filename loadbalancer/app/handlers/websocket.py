@@ -1,9 +1,10 @@
 import asyncio
 import logging
 
-from balancer.pool import ServerPool
 from starlette.websockets import WebSocket, WebSocketDisconnect
 import websockets
+
+from app.balancer.pool import ServerPool
 
 logger = logging.getLogger(__name__)
 
