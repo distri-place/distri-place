@@ -42,6 +42,5 @@ class WebSocketHandler:
             else:
                 async for msg in backend_ws:
                     await client_ws.send_text(msg)
-        except:
+        except Exception:
             pass
-

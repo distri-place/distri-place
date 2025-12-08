@@ -12,4 +12,3 @@ class ServerNode(BaseModel):
     @property
     def ws_url(self) -> str:
         return f"ws://{self.host}:{self.port}"
-

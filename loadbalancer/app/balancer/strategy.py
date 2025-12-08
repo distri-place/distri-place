@@ -17,4 +17,3 @@ class RoundRobinStrategy(LoadBalancingStrategy):
         server = servers[self.current]
         self.current = (self.current + 1) % len(servers)
         return server
-

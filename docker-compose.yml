@@ -6,8 +6,8 @@ services:
     ports:
       - "8080:8000"
     environment:
-      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-dev}
       - PORT=8000
+      - SERVERS=node-1:8000,node-2:8000,node-3:8000
     depends_on:
       - node-1
       - node-2

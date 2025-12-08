@@ -1,17 +1,18 @@
 import logging
 
-from app.balancer.pool import ServerPool
-from app.config import DEFAULT_SERVERS, settings
-from app.handlers.http import HTTPHandler
-from app.handlers.websocket import WebSocketHandler
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Route, WebSocketRoute
 
+from app.balancer.pool import ServerPool
+from app.config import settings
+from app.handlers.http import HTTPHandler
+from app.handlers.websocket import WebSocketHandler
+
 logger = logging.getLogger(__name__)
 
-pool = ServerPool(DEFAULT_SERVERS)
+pool = ServerPool(settings.SERVERS)
 http_handler = HTTPHandler(pool)
 ws_handler = WebSocketHandler(pool)
 
@@ -46,7 +47,7 @@ app = Starlette(
 @app.on_event("startup")
 async def startup_event():
     logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION}")
-    logger.info(f"Health checking servers: {DEFAULT_SERVERS}")
+    logger.info(f"Serving servers: {settings.SERVERS}")
 
 
 @app.on_event("shutdown")
