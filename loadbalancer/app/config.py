@@ -29,8 +29,10 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             servers = []
             for server in v.split(","):
-                host, port = server.strip().split(":")
-                servers.append(ServerNode(host=host, port=int(port)))
+                server = server.strip()
+                if ":" in server:
+                    host, port = server.split(":", 1)
+                    servers.append(ServerNode(host=host.strip(), port=int(port.strip())))
             return servers
         return v
 
