@@ -10,7 +10,7 @@ def main():
         host="0.0.0.0",
         port=settings.PORT,
         log_level=settings.LOG_LEVEL.lower(),
-        reload=False,
+        reload=settings.RELOAD,
     )
 
 

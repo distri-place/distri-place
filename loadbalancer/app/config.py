@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from pydantic import Field, field_validator
+from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.schemas import ServerNode
@@ -15,26 +15,26 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
     PORT: int = 8000
-    SERVERS: list[ServerNode] = Field(
-        default_factory=lambda: [
-            ServerNode(host="node-1", port=8000),
-            ServerNode(host="node-2", port=8000),
-            ServerNode(host="node-3", port=8000),
-        ]
+    RELOAD: bool = False
+
+    servers_string: str = Field(
+        default="node-1:8000,node-2:8000,node-3:8000",
+        exclude=True,
+        alias="SERVERS",
     )
 
-    @field_validator("SERVERS", mode="before")
-    @classmethod
-    def parse_servers(cls, v):
-        if isinstance(v, str):
-            servers = []
-            for server in v.split(","):
-                server = server.strip()
-                if ":" in server:
-                    host, port = server.split(":", 1)
-                    servers.append(ServerNode(host=host.strip(), port=int(port.strip())))
-            return servers
-        return v
+    @computed_field
+    @property
+    def SERVERS(self) -> list[ServerNode]:
+        result = []
+        for server in self.servers_string.split(","):
+            server = server.strip()
+            if ":" in server:
+                host, port = server.split(":")
+                result.append(ServerNode(host=host, port=int(port)))
+            else:
+                result.append(ServerNode(host=server, port=8000))
+        return result
 
 
 settings = Settings()
