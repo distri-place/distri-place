@@ -19,7 +19,11 @@ class HTTPHandler:
         if not server:
             return Response("no servers", status_code=503)
 
-        url = server.http_url
+        url = f"{server.http_url}{request.url.path}"
+        if request.url.query:
+            url += f"?{request.url.query}"
+
+        logger.debug(f"Proxying {request.method} {request.url.path} to {server.host}:{server.port}")
 
         headers = dict(request.headers)
         headers.pop("host", None)

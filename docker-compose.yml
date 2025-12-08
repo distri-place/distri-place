@@ -9,6 +9,7 @@ services:
       - PORT=8000
       - SERVERS=node-1:8000,node-2:8000,node-3:8000
       - RELOAD=true
+      - LOG_LEVEL=DEBUG
     depends_on:
       - node-1
       - node-2
@@ -32,6 +33,7 @@ services:
       - HOST=0.0.0.0
       - PEERS=node-2,node-3
       - RELOAD=true
+      - LOG_LEVEL=DEBUG
     networks:
       - distri-place-network
     volumes:
@@ -51,6 +53,7 @@ services:
       - HOST=0.0.0.0
       - PEERS=node-1,node-3
       - RELOAD=true
+      - LOG_LEVEL=DEBUG
     networks:
       - distri-place-network
     volumes:
@@ -70,6 +73,7 @@ services:
       - HOST=0.0.0.0
       - PEERS=node-1,node-2
       - RELOAD=true
+      - LOG_LEVEL=DEBUG
     networks:
       - distri-place-network
     volumes:
