@@ -1,6 +1,8 @@
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.schemas import ServerNode
+
 load_dotenv()
 
 
@@ -15,3 +17,11 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+DEFAULT_SERVERS = [
+    ServerNode(host="localhost", port=8001),
+    ServerNode(host="localhost", port=8002),
+    ServerNode(host="localhost", port=8003),
+]
+
