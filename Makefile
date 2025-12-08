@@ -15,6 +15,9 @@ dev-down:
 dev-logs:
 	docker compose logs -f
 
+.PHONY: dev
+dev: dev-up dev-logs
+
 # Client for VM deployment
 .PHONY: client-up
 client-up:
