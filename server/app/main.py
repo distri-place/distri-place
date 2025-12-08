@@ -8,6 +8,7 @@ from app.config import settings
 from app.dependencies import set_node_instance
 from app.grpc.server import run_grpc_server
 from app.raft.node import RaftNode
+from app.utils import logger as _  # noqa: F401 - Import to configure logging
 
 logger = logging.getLogger(__name__)
 
