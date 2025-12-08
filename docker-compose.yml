@@ -1,56 +1,78 @@
 services:
   loadbalancer:
-    build: ./loadbalancer
+    image: python:3.11-slim
     container_name: distri-place-loadbalancer
+    working_dir: /app
     ports:
       - "8080:8000"
     environment:
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-dev}
+      - PORT=8000
     depends_on:
       - node-1
       - node-2
       - node-3
     networks:
       - distri-place-network
-    command:
-      [
-        "python",
-        "-m",
-        "app.main",
-        "8000",
-        "node-1:8000",
-        "node-2:8000",
-        "node-3:8000",
-      ]
+    volumes:
+      - ./loadbalancer:/app
+    command: >
+      sh -c "pip install -r requirements.txt && 
+             uvicorn app.server:app --host 0.0.0.0 --port 8000 --reload"
+
   node-1:
-    build: ./server
+    image: python:3.11-slim
     container_name: distri-place-node-1
+    working_dir: /app
     environment:
       - NODE_ID=node-1
-      - PORT=8000
+      - HTTP_PORT=8000
+      - GRPC_PORT=8001
+      - HOST=0.0.0.0
       - PEERS=node-2,node-3
     networks:
       - distri-place-network
+    volumes:
+      - ./server:/app
+    command: >
+      sh -c "pip install -r requirements.txt && 
+             python -m app.main"
 
   node-2:
-    build: ./server
+    image: python:3.11-slim
     container_name: distri-place-node-2
+    working_dir: /app
     environment:
       - NODE_ID=node-2
-      - PORT=8000
+      - HTTP_PORT=8000
+      - GRPC_PORT=8001
+      - HOST=0.0.0.0
       - PEERS=node-1,node-3
     networks:
       - distri-place-network
+    volumes:
+      - ./server:/app
+    command: >
+      sh -c "pip install -r requirements.txt && 
+             python -m app.main"
 
   node-3:
-    build: ./server
+    image: python:3.11-slim
     container_name: distri-place-node-3
+    working_dir: /app
     environment:
       - NODE_ID=node-3
-      - PORT=8000
+      - HTTP_PORT=8000
+      - GRPC_PORT=8001
+      - HOST=0.0.0.0
       - PEERS=node-1,node-2
     networks:
       - distri-place-network
+    volumes:
+      - ./server:/app
+    command: >
+      sh -c "pip install -r requirements.txt && 
+             python -m app.main"
 
   client:
     image: nginx:alpine
