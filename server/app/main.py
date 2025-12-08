@@ -35,8 +35,14 @@ async def main():
 
     fastapi_app = create_app()
 
+    from app.utils.logger import LOGGING_CONFIG
+
     http_config = uvicorn.Config(
-        app=fastapi_app, host=settings.HOST, port=settings.HTTP_PORT, log_level="info"
+        app=fastapi_app,
+        host=settings.HOST,
+        port=settings.HTTP_PORT,
+        log_config=LOGGING_CONFIG,
+        reload=settings.RELOAD,
     )
 
     http_server = uvicorn.Server(http_config)

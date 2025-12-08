@@ -31,6 +31,7 @@ services:
       - GRPC_PORT=8001
       - HOST=0.0.0.0
       - PEERS=node-2,node-3
+      - RELOAD=true
     networks:
       - distri-place-network
     volumes:
@@ -49,6 +50,7 @@ services:
       - GRPC_PORT=8001
       - HOST=0.0.0.0
       - PEERS=node-1,node-3
+      - RELOAD=true
     networks:
       - distri-place-network
     volumes:
@@ -67,6 +69,7 @@ services:
       - GRPC_PORT=8001
       - HOST=0.0.0.0
       - PEERS=node-1,node-2
+      - RELOAD=true
     networks:
       - distri-place-network
     volumes:

@@ -13,7 +13,7 @@ from PIL import Image
 from typing_extensions import Buffer
 
 from app.client.manager import manager as client_manager
-from app.generated.grpc.messages_pb2 import LogEntry, AppendEntriesResponse
+from app.generated.grpc.messages_pb2 import AppendEntriesResponse, LogEntry
 from app.grpc.client import RaftClient
 from app.raft.log import RaftLog
 
@@ -183,21 +183,25 @@ class RaftNode:
                 prev_term = 0
                 if prev_commit_index > 0:
                     prev_term = self.log[prev_commit_index].term
-                requests.append(self.grpc_client.append_entries(
-                    peer,
-                    self.current_term,
-                    self.node_id,
-                    prev_commit_index,
-                    prev_term,
-                    self.log.get_entries_after(next_commit_index),
-                    self.commit_index,
-                ))
+                requests.append(
+                    self.grpc_client.append_entries(
+                        peer,
+                        self.current_term,
+                        self.node_id,
+                        prev_commit_index,
+                        prev_term,
+                        self.log.get_entries_after(next_commit_index),
+                        self.commit_index,
+                    )
+                )
 
             responses = await asyncio.gather(*requests, return_exceptions=True)
 
             # map each response to its peer and filter out failed responses
             responses = zip(self.peers, responses)
-            responses = [(peer, resp) for peer, resp in responses if isinstance(resp, AppendEntriesResponse)]
+            responses = [
+                (peer, resp) for peer, resp in responses if isinstance(resp, AppendEntriesResponse)
+            ]
 
             # update peer last commit indices
             for peer, resp in responses:

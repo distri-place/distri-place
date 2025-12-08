@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     LOG_LEVEL: str = "INFO"
+    RELOAD: bool = False
 
     NODE_ID: str = "node-1"
     HOST: str = "0.0.0.0"
