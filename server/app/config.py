@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     GRPC_PORT: int = 50051
 
     peers_string: str = Field(
-        default="node-2:8000:8001,node-3:8000:8001",
+        default="node-2:node-2:8000:8001,node-2:node-3:8000:8001",
         exclude=True,
         alias="PEERS",
     )
@@ -39,18 +39,25 @@ class Settings(BaseSettings):
             peer = peer.strip()
             if ":" in peer:
                 parts = peer.split(":")
-                if len(parts) == 3:
-                    host, http_port, grpc_port = parts
+                if len(parts) == 4:
+                    node_id, host, http_port, grpc_port = parts
                     result.append(
-                        PeerNode(host=host, http_port=int(http_port), grpc_port=int(grpc_port))
+                        PeerNode(
+                            node_id=node_id,
+                            host=host,
+                            http_port=int(http_port),
+                            grpc_port=int(grpc_port),
+                        )
                     )
                 elif len(parts) == 2:
-                    host, http_port = parts
-                    result.append(PeerNode(host=host, http_port=int(http_port), grpc_port=8001))
+                    node_id, host = parts
+                    result.append(
+                        PeerNode(node_id=node_id, host=host, http_port=8000, grpc_port=8001)
+                    )
                 else:
-                    result.append(PeerNode(host=peer, http_port=8000, grpc_port=8001))
+                    result.append(PeerNode(node_id=peer, host=peer, http_port=8000, grpc_port=8001))
             else:
-                result.append(PeerNode(host=peer, http_port=8000, grpc_port=8001))
+                result.append(PeerNode(node_id=peer, host=peer, http_port=8000, grpc_port=8001))
         return result
 
 
