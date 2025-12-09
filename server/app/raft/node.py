@@ -16,6 +16,7 @@ from app.client.manager import manager as client_manager
 from app.generated.grpc.messages_pb2 import AppendEntriesResponse, LogEntry
 from app.grpc.client import RaftClient
 from app.raft.log import RaftLog
+from app.schemas import PeerNode
 
 
 class Role(Enum):
@@ -31,7 +32,7 @@ def init_canvas_image(
 
 
 class RaftNode:
-    def __init__(self, node_id: str, peers: list[str]):
+    def __init__(self, node_id: str, peers: list[PeerNode]):
         self.node_id = node_id
         self.role = Role.FOLLOWER
         self.current_term = 0
@@ -43,7 +44,6 @@ class RaftNode:
         self.peer_commit_index: dict[str, int] = defaultdict(int)
         self.canvas = init_canvas_image()
 
-        # gRPC components - clean separation
         self.grpc_client = RaftClient(node_id)
         self.election_timeout_task: asyncio.Task | None = None
         self.heartbeat_task: asyncio.Task | None = None
@@ -146,21 +146,8 @@ class RaftNode:
         png_bytes = cast(Buffer, buf.getvalue())
         return base64.b64encode(png_bytes).decode("ascii")
 
-    async def node_append_entries(self, node: str, entries: list[LogEntry]) -> None:
-        resp = await self.grpc_client.append_entries(
-            node,
-            self.current_term,
-            self.leader_id or self.node_id,
-            self.log.get_last_log_index(),
-            self.log.get_last_log_term(),
-            entries,
-            self.commit_index,
-        )
-        if not resp.success:
-            pass
-
-    async def peer_health_check(self, node: str):
-        return await self.grpc_client.health_check(node)
+    async def peer_health_check(self, peer: PeerNode):
+        return await self.grpc_client.health_check(peer)
 
     async def set_pixel(self, x: int, y: int, color: str, user_id: str) -> bool:
         # Only leader can set pixels
@@ -178,7 +165,7 @@ class RaftNode:
 
             requests = []
             for peer in self.peers:
-                prev_commit_index = self.peer_commit_index[peer]
+                prev_commit_index = self.peer_commit_index[peer.host]
                 next_commit_index = prev_commit_index + 1
                 prev_term = 0
                 if prev_commit_index > 0:
@@ -198,14 +185,14 @@ class RaftNode:
             responses = await asyncio.gather(*requests, return_exceptions=True)
 
             # map each response to its peer and filter out failed responses
-            responses = zip(self.peers, responses)
+            responses = zip(self.peers, responses, strict=False)
             responses = [
                 (peer, resp) for peer, resp in responses if isinstance(resp, AppendEntriesResponse)
             ]
 
             # update peer last commit indices
             for peer, resp in responses:
-                self.peer_commit_index[peer] = resp.match_index
+                self.peer_commit_index[peer.host] = resp.match_index
 
             # count self in successful commits
             success_count = 1 + sum(1 for _, resp in responses if resp.success)
@@ -216,9 +203,12 @@ class RaftNode:
             # commit the entry if majority have replicated it
             self.commit_index = self.log.get_last_log_index()
             await self.apply_command(entry.command, data)
-        else:  # Forward to leader
+        else:
             if self.leader_id:
-                await self.grpc_client.set_pixel(self.leader_id, x, y, color, user_id)
+                # TODO: find leader peer
+                leader_peer = None
+                if leader_peer:
+                    await self.grpc_client.set_pixel(leader_peer, x, y, color, user_id)
         return True
 
     async def peers_health_check(self, attempts: int = 3, delay: float = 1.0):

@@ -16,6 +16,7 @@ from app.generated.grpc.messages_pb2 import (
     SetPixelResponse,
 )
 from app.generated.grpc.messages_pb2_grpc import RaftNodeStub
+from app.schemas import PeerNode
 
 
 class RaftClient:
@@ -24,18 +25,19 @@ class RaftClient:
         self._channels: dict[str, grpc.Channel] = {}
         self._stubs: dict[str, RaftNodeStub] = {}
 
-    def _get_stub(self, peer_id: str) -> RaftNodeStub:
+    def _get_stub(self, peer: PeerNode) -> RaftNodeStub:
         """Get or create a gRPC stub for the given peer"""
-        if peer_id not in self._stubs:
-            if peer_id not in self._channels:
-                self._channels[peer_id] = grpc.insecure_channel(f"{peer_id}:50051")
-            self._stubs[peer_id] = RaftNodeStub(self._channels[peer_id])
-        return self._stubs[peer_id]
+        peer_key = f"{peer.host}:{peer.grpc_port}"
+        if peer_key not in self._stubs:
+            if peer_key not in self._channels:
+                self._channels[peer_key] = grpc.insecure_channel(peer.grpc_address)
+            self._stubs[peer_key] = RaftNodeStub(self._channels[peer_key])
+        return self._stubs[peer_key]
 
     async def request_vote(
-        self, peer_id: str, term: int, last_log_index: int, last_log_term: int
+        self, peer: PeerNode, term: int, last_log_index: int, last_log_term: int
     ) -> RequestVoteResponse:
-        stub = self._get_stub(peer_id)
+        stub = self._get_stub(peer)
         request = RequestVoteRequest(
             term=term,
             candidate_id=self.node_id,
@@ -46,7 +48,7 @@ class RaftClient:
 
     async def append_entries(
         self,
-        peer_id: str,
+        peer: PeerNode,
         term: int,
         leader_id: str,
         prev_log_index: int,
@@ -54,7 +56,7 @@ class RaftClient:
         entries: list[LogEntry],
         leader_commit: int,
     ) -> AppendEntriesResponse:
-        stub = self._get_stub(peer_id)
+        stub = self._get_stub(peer)
         request = AppendEntriesRequest(
             term=term,
             leader_id=leader_id,
@@ -65,20 +67,20 @@ class RaftClient:
         )
         return await stub.AppendEntries(request)
 
-    async def health_check(self, peer_id: str) -> HealthCheckResponse:
-        stub = self._get_stub(peer_id)
+    async def health_check(self, peer: PeerNode) -> HealthCheckResponse:
+        stub = self._get_stub(peer)
         request = HealthCheckRequest(node_id=self.node_id)
         return await stub.HealthCheck(request)
 
     async def set_pixel(
-        self, peer_id: str, x: int, y: int, color: str, user_id: str
+        self, peer: PeerNode, x: int, y: int, color: str, user_id: str
     ) -> SetPixelResponse:
-        stub = self._get_stub(peer_id)
+        stub = self._get_stub(peer)
         request = SetPixelRequest(x=x, y=y, color=color, user_id=user_id)
         return await stub.SetPixel(request)
 
     async def broadcast_request_votes(
-        self, peers: list[str], term: int, last_log_index: int, last_log_term: int
+        self, peers: list[PeerNode], term: int, last_log_index: int, last_log_term: int
     ) -> list[RequestVoteResponse]:
         requests: list[Coroutine[Any, Any, RequestVoteResponse]] = [
             self.request_vote(peer, term, last_log_index, last_log_term) for peer in peers
@@ -90,7 +92,7 @@ class RaftClient:
 
     async def broadcast_append_entries(
         self,
-        peers: list[str],
+        peers: list[PeerNode],
         term: int,
         leader_id: str,
         prev_log_index: int,
@@ -106,7 +108,7 @@ class RaftClient:
         ]
         return await asyncio.gather(*requests, return_exceptions=True)
 
-    async def broadcast_health_checks(self, peers: list[str]) -> list[HealthCheckResponse]:
+    async def broadcast_health_checks(self, peers: list[PeerNode]) -> list[HealthCheckResponse]:
         requests = [self.health_check(peer) for peer in peers]
         results = await asyncio.gather(*requests, return_exceptions=True)
         return [resp for resp in results if isinstance(resp, HealthCheckResponse)]
@@ -118,6 +120,6 @@ class RaftClient:
         self._stubs.clear()
 
     async def peer_request_vote(
-        self, peer_id: str, term: int, last_log_index: int, last_log_term: int
+        self, peer: PeerNode, term: int, last_log_index: int, last_log_term: int
     ) -> RequestVoteResponse:
-        return await self.request_vote(peer_id, term, last_log_index, last_log_term)
+        return await self.request_vote(peer, term, last_log_index, last_log_term)

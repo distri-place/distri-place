@@ -22,14 +22,7 @@ async def main():
     logger.info(f"  Peers: {settings.PEERS}")
 
     # Initialize raft node
-    peers = (
-        settings.PEERS
-        if isinstance(settings.PEERS, list)
-        else [settings.PEERS]
-        if settings.PEERS
-        else []
-    )
-    raft_node = RaftNode(node_id=node_id, peers=peers)
+    raft_node = RaftNode(node_id=node_id, peers=settings.PEERS)
 
     set_node_instance(raft_node)
 

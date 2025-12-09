@@ -1,5 +1,8 @@
 from dotenv import load_dotenv
+from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.schemas import PeerNode
 
 load_dotenv()
 
@@ -18,7 +21,37 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     HTTP_PORT: int = 8000
     GRPC_PORT: int = 50051
-    PEERS: list[str] | str = []
+
+    peers_string: str = Field(
+        default="node-2:8000:8001,node-3:8000:8001",
+        exclude=True,
+        alias="PEERS",
+    )
+
+    @computed_field
+    @property
+    def PEERS(self) -> list[PeerNode]:
+        result = []
+        if not self.peers_string:
+            return result
+
+        for peer in self.peers_string.split(","):
+            peer = peer.strip()
+            if ":" in peer:
+                parts = peer.split(":")
+                if len(parts) == 3:
+                    host, http_port, grpc_port = parts
+                    result.append(
+                        PeerNode(host=host, http_port=int(http_port), grpc_port=int(grpc_port))
+                    )
+                elif len(parts) == 2:
+                    host, http_port = parts
+                    result.append(PeerNode(host=host, http_port=int(http_port), grpc_port=8001))
+                else:
+                    result.append(PeerNode(host=peer, http_port=8000, grpc_port=8001))
+            else:
+                result.append(PeerNode(host=peer, http_port=8000, grpc_port=8001))
+        return result
 
 
 settings = Settings()
