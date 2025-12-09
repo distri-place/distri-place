@@ -1,17 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 from collections import defaultdict
 from enum import Enum
-from io import BytesIO
 import json
 import random
-from typing import cast
 
-from PIL import Image
-from typing_extensions import Buffer
-
+from app.canvas.state import Canvas
 from app.client.manager import manager as client_manager
 from app.generated.grpc.messages_pb2 import AppendEntriesResponse, LogEntry
 from app.grpc.client import RaftClient
@@ -25,26 +20,22 @@ class Role(Enum):
     LEADER = "leader"
 
 
-def init_canvas_image(
-    width: int = 64, height: int = 64, color: tuple[int, int, int] = (255, 255, 255)
-) -> Image.Image:
-    return Image.new("RGB", (width, height), color)
-
-
 class RaftNode:
     def __init__(self, node_id: str, peers: list[PeerNode]):
+        self.canvas = Canvas(size=100)
+        self.grpc_client = RaftClient(node_id)
+
         self.node_id = node_id
         self.role = Role.FOLLOWER
         self.current_term = 0
         self.voted_for: str | None = None
         self.leader_id: str | None = None
-        self.commit_index = 0
         self.log = RaftLog()
+
+        self.commit_index = 0
         self.peers = peers
         self.peer_commit_index: dict[str, int] = defaultdict(int)
-        self.canvas = init_canvas_image()
 
-        self.grpc_client = RaftClient(node_id)
         self.election_timeout_task: asyncio.Task | None = None
         self.heartbeat_task: asyncio.Task | None = None
 
@@ -140,12 +131,6 @@ class RaftNode:
     async def get_status(self) -> str:
         return "ok"
 
-    def encode_image_to_base64_png(self) -> str:
-        buf = BytesIO()
-        self.canvas.save(buf, format="PNG")
-        png_bytes = cast(Buffer, buf.getvalue())
-        return base64.b64encode(png_bytes).decode("ascii")
-
     async def peer_health_check(self, peer: PeerNode):
         return await self.grpc_client.health_check(peer)
 
@@ -227,10 +212,7 @@ class RaftNode:
                 return
         match command:
             case "pixel" if isinstance(data, dict):
-                self.canvas.putpixel(
-                    (data["x"], data["y"]),
-                    tuple(int(data["color"][i : i + 2], 16) for i in (1, 3, 5)),
-                )
+                self.canvas.update(data["x"], data["y"], data["color"])
                 await client_manager.broadcast("pixel", data)
             case _:
                 pass
