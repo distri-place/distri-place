@@ -6,18 +6,17 @@ service RaftNode {
   rpc RequestVote(RequestVoteRequest) returns (RequestVoteResponse);
   rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse);
   rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
-  rpc SetPixel(SetPixelRequest) returns (SetPixelResponse);
+  rpc SubmitPixel(SubmitPixelRequest) returns (SubmitPixelResponse);
 }
 
-message SetPixelRequest {
+message SubmitPixelRequest {
   int64 x = 1;
   int64 y = 2;
-  string color = 3;
-  string user_id = 4;
+  int64 color = 3;
 }
 
-message SetPixelResponse {
-  string status = 1;
+message SubmitPixelResponse {
+  bool success = 1;
 }
 
 message RequestVoteRequest {
@@ -50,8 +49,9 @@ message AppendEntriesResponse {
 message LogEntry {
   int64 term = 1;
   int64 index = 2;
-  string command = 3;
-  bytes data = 4;
+  int64 x = 3;
+  int64 y = 4;
+  int64 color = 5;
 }
 
 message HealthCheckRequest {

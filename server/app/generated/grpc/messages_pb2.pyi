@@ -6,23 +6,21 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class SetPixelRequest(_message.Message):
-    __slots__ = ("x", "y", "color", "user_id")
+class SubmitPixelRequest(_message.Message):
+    __slots__ = ("x", "y", "color")
     X_FIELD_NUMBER: _ClassVar[int]
     Y_FIELD_NUMBER: _ClassVar[int]
     COLOR_FIELD_NUMBER: _ClassVar[int]
-    USER_ID_FIELD_NUMBER: _ClassVar[int]
     x: int
     y: int
-    color: str
-    user_id: str
-    def __init__(self, x: _Optional[int] = ..., y: _Optional[int] = ..., color: _Optional[str] = ..., user_id: _Optional[str] = ...) -> None: ...
+    color: int
+    def __init__(self, x: _Optional[int] = ..., y: _Optional[int] = ..., color: _Optional[int] = ...) -> None: ...
 
-class SetPixelResponse(_message.Message):
-    __slots__ = ("status",)
-    STATUS_FIELD_NUMBER: _ClassVar[int]
-    status: str
-    def __init__(self, status: _Optional[str] = ...) -> None: ...
+class SubmitPixelResponse(_message.Message):
+    __slots__ = ("success",)
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    def __init__(self, success: bool = ...) -> None: ...
 
 class RequestVoteRequest(_message.Message):
     __slots__ = ("term", "candidate_id", "last_log_index", "last_log_term")
@@ -71,16 +69,18 @@ class AppendEntriesResponse(_message.Message):
     def __init__(self, term: _Optional[int] = ..., success: bool = ..., match_index: _Optional[int] = ...) -> None: ...
 
 class LogEntry(_message.Message):
-    __slots__ = ("term", "index", "command", "data")
+    __slots__ = ("term", "index", "x", "y", "color")
     TERM_FIELD_NUMBER: _ClassVar[int]
     INDEX_FIELD_NUMBER: _ClassVar[int]
-    COMMAND_FIELD_NUMBER: _ClassVar[int]
-    DATA_FIELD_NUMBER: _ClassVar[int]
+    X_FIELD_NUMBER: _ClassVar[int]
+    Y_FIELD_NUMBER: _ClassVar[int]
+    COLOR_FIELD_NUMBER: _ClassVar[int]
     term: int
     index: int
-    command: str
-    data: bytes
-    def __init__(self, term: _Optional[int] = ..., index: _Optional[int] = ..., command: _Optional[str] = ..., data: _Optional[bytes] = ...) -> None: ...
+    x: int
+    y: int
+    color: int
+    def __init__(self, term: _Optional[int] = ..., index: _Optional[int] = ..., x: _Optional[int] = ..., y: _Optional[int] = ..., color: _Optional[int] = ...) -> None: ...
 
 class HealthCheckRequest(_message.Message):
     __slots__ = ("node_id",)

@@ -1,22 +1,21 @@
 import asyncio
-import json
 from typing import Any
 from uuid import uuid4
 
 from fastapi import WebSocket
 
 
-class ConnectionManager:
+class ClientManager:
     def __init__(self) -> None:
-        self._background_tasks: set[asyncio.Task] = set()
         self._clients: dict[str, WebSocket] = {}
         self._lock = asyncio.Lock()
+        self._tasks: set[asyncio.Task[Any]] = set()
 
-    async def connect(self, websocket: WebSocket) -> str:
-        await websocket.accept()
+    async def connect(self, ws: WebSocket) -> str:
+        await ws.accept()
         client_id = str(uuid4())
         async with self._lock:
-            self._clients[client_id] = websocket
+            self._clients[client_id] = ws
         return client_id
 
     async def disconnect(self, client_id: str) -> None:
@@ -28,22 +27,16 @@ class ConnectionManager:
             except Exception:
                 pass
 
-    async def broadcast(self, type: str, content: Any) -> None:
+    async def broadcast(self, message: dict) -> None:
         async with self._lock:
             clients = list(self._clients.values())
-        message = json.dumps({"type": type, "content": content})
         tasks = [asyncio.create_task(self._safe_send(ws, message)) for ws in clients]
         for task in tasks:
-            self._background_tasks.add(task)
-            task.add_done_callback(self._background_tasks.discard)
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
 
     async def _safe_send(self, ws: WebSocket, data):
         try:
-            await ws.send_text(data)
+            await ws.send_json(data)
         except Exception:
-            # optional: mark for cleanup, log, etc.
             pass
-
-
-# This is the singleton used across the app
-manager = ConnectionManager()

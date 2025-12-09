@@ -1,18 +1,18 @@
 import asyncio
 import json
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
 from app.client.manager import manager as client_manager
-from app.dependencies import get_node
+from app.dependencies import get_node_instance
+from app.raft.node import RaftNode
 
 router = APIRouter()
 
 
 @router.websocket("/")
-async def websocket_endpoint(ws: WebSocket):
+async def websocket_endpoint(ws: WebSocket, node: RaftNode = Depends(get_node_instance)):
     client_id = await client_manager.connect(ws)
-    node_instance = get_node()
     try:
         while True:
             data = json.loads(await ws.receive_text())
@@ -25,10 +25,9 @@ async def websocket_endpoint(ws: WebSocket):
                             "type": "connected",
                             "content": {
                                 "node": {
-                                    "id": node_instance.node_id,
-                                    "role": "leader" if node_instance.is_leader() else "replica",
+                                    "id": node.node_id,
+                                    "role": node.role.name,
                                 },
-                                "canvas": node_instance.encode_image_to_base64_png(),
                             },
                         }
                     )
@@ -36,7 +35,7 @@ async def websocket_endpoint(ws: WebSocket):
                     await ws.send_json(
                         {
                             "type": "pong",
-                            "content": {"status": await node_instance.get_status()},
+                            "content": {"status": "ok"},
                         }
                     )
     except asyncio.CancelledError:

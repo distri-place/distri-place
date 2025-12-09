@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-import app.generated.grpc.messages_pb2 as messages__pb2
+import messages_pb2 as messages__pb2
 
 GRPC_GENERATED_VERSION = '1.76.0'
 GRPC_VERSION = grpc.__version__
@@ -49,10 +49,10 @@ class RaftNodeStub(object):
                 request_serializer=messages__pb2.HealthCheckRequest.SerializeToString,
                 response_deserializer=messages__pb2.HealthCheckResponse.FromString,
                 _registered_method=True)
-        self.SetPixel = channel.unary_unary(
-                '/app.generated.grpc.RaftNode/SetPixel',
-                request_serializer=messages__pb2.SetPixelRequest.SerializeToString,
-                response_deserializer=messages__pb2.SetPixelResponse.FromString,
+        self.SubmitPixel = channel.unary_unary(
+                '/app.generated.grpc.RaftNode/SubmitPixel',
+                request_serializer=messages__pb2.SubmitPixelRequest.SerializeToString,
+                response_deserializer=messages__pb2.SubmitPixelResponse.FromString,
                 _registered_method=True)
 
 
@@ -77,7 +77,7 @@ class RaftNodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def SetPixel(self, request, context):
+    def SubmitPixel(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -101,10 +101,10 @@ def add_RaftNodeServicer_to_server(servicer, server):
                     request_deserializer=messages__pb2.HealthCheckRequest.FromString,
                     response_serializer=messages__pb2.HealthCheckResponse.SerializeToString,
             ),
-            'SetPixel': grpc.unary_unary_rpc_method_handler(
-                    servicer.SetPixel,
-                    request_deserializer=messages__pb2.SetPixelRequest.FromString,
-                    response_serializer=messages__pb2.SetPixelResponse.SerializeToString,
+            'SubmitPixel': grpc.unary_unary_rpc_method_handler(
+                    servicer.SubmitPixel,
+                    request_deserializer=messages__pb2.SubmitPixelRequest.FromString,
+                    response_serializer=messages__pb2.SubmitPixelResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -199,7 +199,7 @@ class RaftNode(object):
             _registered_method=True)
 
     @staticmethod
-    def SetPixel(request,
+    def SubmitPixel(request,
             target,
             options=(),
             channel_credentials=None,
@@ -212,9 +212,9 @@ class RaftNode(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/app.generated.grpc.RaftNode/SetPixel',
-            messages__pb2.SetPixelRequest.SerializeToString,
-            messages__pb2.SetPixelResponse.FromString,
+            '/app.generated.grpc.RaftNode/SubmitPixel',
+            messages__pb2.SubmitPixelRequest.SerializeToString,
+            messages__pb2.SubmitPixelResponse.FromString,
             options,
             channel_credentials,
             insecure,

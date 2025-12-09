@@ -3,12 +3,10 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 from enum import Enum
-import json
 import random
 
 from app.canvas.state import Canvas
-from app.client.manager import manager as client_manager
-from app.generated.grpc.messages_pb2 import AppendEntriesResponse, LogEntry
+from app.generated.grpc.messages_pb2 import LogEntry
 from app.grpc.client import RaftClient
 from app.raft.log import RaftLog
 from app.schemas import PeerNode
@@ -21,198 +19,272 @@ class Role(Enum):
 
 
 class RaftNode:
-    def __init__(self, node_id: str, peers: list[PeerNode]):
-        self.canvas = Canvas(size=100)
+    def __init__(self, node_id: str, peers: list[PeerNode], canvas: Canvas):
+        self.canvas = canvas
         self.grpc_client = RaftClient(node_id)
 
         self.node_id = node_id
         self.role = Role.FOLLOWER
+        self.leader_id: str | None = None
+
+        # Persistent for all
         self.current_term = 0
         self.voted_for: str | None = None
-        self.leader_id: str | None = None
         self.log = RaftLog()
 
+        # Volatile for all
         self.commit_index = 0
         self.peers = peers
         self.peer_commit_index: dict[str, int] = defaultdict(int)
 
-        self.election_timeout_task: asyncio.Task | None = None
-        self.heartbeat_task: asyncio.Task | None = None
+        # Volatile for leaders
+        self.next_index: dict[str, int] | None = None
+        self.match_index: dict[str, int] | None = None
+        self._pending_commits: dict[int, asyncio.Future[bool]] | None = None
+
+        self._election_timeout = random.uniform(1.5, 3.0)
+        self._last_heartbeat = asyncio.get_event_loop().time()
 
     async def start(self):
-        await self._start_election_timeout()
-        await self._start_heartbeat()
+        while True:
+            if self.role == Role.LEADER:
+                await self._leader_loop()
+            else:
+                await self._follower_candidate_loop()
 
-    async def stop(self):
-        if self.election_timeout_task:
-            self.election_timeout_task.cancel()
-        if self.heartbeat_task:
-            self.heartbeat_task.cancel()
+    async def _follower_candidate_loop(self):
+        while self.role in (Role.FOLLOWER, Role.CANDIDATE):
+            now = asyncio.get_event_loop().time()
+            elapsed = now - self._last_heartbeat
 
-        await self.grpc_client.close_all()
+            if elapsed >= self._election_timeout:
+                await self._start_election()
 
-    async def start_election(self):
-        if self.is_leader():
-            return
+            await asyncio.sleep(0.1)
+
+    async def _leader_loop(self):
+        while self.role == Role.LEADER:
+            await self._send_heartbeats()
+            await asyncio.sleep(0.5)
+
+    async def _start_election(self):
         self.role = Role.CANDIDATE
         self.current_term += 1
         self.voted_for = self.node_id
-        self.leader_id = None
-        await self._reset_election_timeout()
-        term = self.current_term
-        majority = (len(self.peers) + 1) // 2 + 1
 
-        lli, llt = self.log.get_last_log_index(), self.log.get_last_log_term()
+        # Reset election
+        self._election_timeout = random.uniform(1.5, 3.0)
+        self._last_heartbeat = asyncio.get_event_loop().time()
+
+        term = self.current_term
+        votes = 1
+
+        last_log_index = self.log.last_index
+        last_log_term = self.log.last_term
 
         if self.current_term != term or self.role != Role.CANDIDATE:
             return
 
-        results = await self.grpc_client.broadcast_request_votes(self.peers, term, lli, llt)
-
-        results = [resp for resp in results if resp is not None]
-        higher_terms = [resp for resp in results if resp.term > term]
-        if higher_terms:
-            resp = higher_terms[0]
-            self.role = Role.FOLLOWER
-            self.current_term = resp.term
-            self.voted_for = None
-            self.leader_id = None
-            return
-        votes = 1 + len([resp for resp in results if resp.vote_granted])
-        if votes >= majority:
-            self.role = Role.LEADER
-            self.leader_id = self.node_id
-
-    async def send_heartbeat_once(self):
-        if not self.is_leader():
-            return
-        await self.grpc_client.broadcast_append_entries(
-            self.peers,
-            self.current_term,
-            self.node_id,
-            self.log.get_last_log_index(),
-            self.log.get_last_log_term(),
-            [],
-            self.commit_index,
+        responses = await self.grpc_client.broadcast_request_votes(
+            self.peers, self.current_term, last_log_index, last_log_term
         )
 
-    async def _start_election_timeout(self):
-        if self.election_timeout_task:
-            self.election_timeout_task.cancel()
-        self.election_timeout_task = asyncio.create_task(self._election_timeout_loop())
-
-    async def _start_heartbeat(self):
-        if self.heartbeat_task:
-            self.heartbeat_task.cancel()
-        self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
-
-    async def _reset_election_timeout(self):
-        await self._start_election_timeout()
-
-    async def _election_timeout_loop(self):
-        while True:
-            try:
-                await asyncio.sleep(random.uniform(1.5, 3.0))
-                await self.start_election()
-            except asyncio.CancelledError:
+        for response in responses:
+            if response.term > self.current_term:
+                self._become_follower(response.term)
                 return
+            if response.vote_granted:
+                votes += 1
+                continue
 
-    async def _heartbeat_loop(self):
-        while True:
-            try:
-                await asyncio.sleep(1.0)
-                await self.send_heartbeat_once()
-            except asyncio.CancelledError:
-                return
+        majority = (len(self.peers) + 1) // 2 + 1
+        if votes >= majority:
+            self._become_leader()
 
-    def is_leader(self) -> bool:
-        return self.role == Role.LEADER
+    def _become_leader(self):
+        self.role = Role.LEADER
+        self.leader_id = self.node_id
 
-    async def get_status(self) -> str:
-        return "ok"
+        self.next_index = {p.node_id: len(self.log) for p in self.peers}
+        self.match_index = {p.node_id: 0 for p in self.peers}
 
-    async def peer_health_check(self, peer: PeerNode):
-        return await self.grpc_client.health_check(peer)
+    def _become_follower(self, term: int):
+        self.role = Role.FOLLOWER
+        self.current_term = term
+        self.voted_for = None
+        self.last_heartbeat = asyncio.get_event_loop().time()
 
-    async def set_pixel(self, x: int, y: int, color: str, user_id: str) -> bool:
-        # Only leader can set pixels
-        if self.is_leader():
-            data = {"x": x, "y": y, "color": color, "user_id": user_id}
+    async def _send_heartbeats(self):
+        tasks = [self._send_append_entries(peer) for peer in self.peers]
+        await asyncio.gather(*tasks, return_exceptions=True)
+        self._try_advance_commit_index()
+
+    async def _send_append_entries(self, peer: PeerNode):
+        if self.role != Role.LEADER or self.next_index is None or self.match_index is None:
+            return
+
+        next_idx = self.next_index[peer.node_id]
+        prev_log_index = next_idx - 1
+        prev_log_term = self.log.term_at(prev_log_index)
+
+        entries = self.log[next_idx:]
+
+        resp = await self.grpc_client.append_entries(
+            peer,
+            term=self.current_term,
+            leader_id=self.node_id,
+            prev_log_index=prev_log_index,
+            prev_log_term=prev_log_term,
+            entries=entries,
+            leader_commit=self.commit_index,
+        )
+
+        if resp.term > self.current_term:
+            self._become_follower(resp.term)
+            return
+
+        if resp.success:
+            self.next_index[peer.node_id] = next_idx + len(entries)
+            self.match_index[peer.node_id] = self.next_index[peer.node_id] - 1
+        else:
+            self.next_index[peer.node_id] = max(0, next_idx - 1)
+
+    def _get_peer(self, node_id: str) -> PeerNode | None:
+        for peer in self.peers:
+            if peer.node_id == node_id:
+                return peer
+        return None
+
+    def _try_advance_commit_index(self):
+        if self.role != Role.LEADER or self.match_index is None or self.next_index is None:
+            return
+
+        for n in range(self.commit_index + 1, len(self.log)):
+            if self.log.term_at(n) != self.current_term:
+                continue
+
+            replicated = 1
+            for peer in self.peers:
+                if self.match_index.get(peer.node_id, 0) >= n:
+                    replicated += 1
+
+            majority = (len(self.peers) + 1) // 2 + 1
+            if replicated >= majority:
+                self.commit_index = n
+
+        self._apply_committed()
+
+    def _apply_committed(self):
+        while self.last_applied < self.commit_index:
+            self.last_applied += 1
+            entry = self.log[self.last_applied]
+            self.canvas.update(entry.x, entry.y, entry.color)
+
+            if (
+                self.role == Role.LEADER
+                and self._pending_commits is not None
+                and self.last_applied in self._pending_commits
+            ):
+                self._pending_commits.pop(self.last_applied).set_result(True)
+
+    # handlers
+    def on_append_entries(
+        self,
+        term: int,
+        leader_id: str,
+        prev_log_index: int,
+        prev_log_term: int,
+        entries: list[LogEntry],
+        leader_commit: int,
+    ) -> tuple[int, bool]:
+        self._last_heartbeat = asyncio.get_event_loop().time()
+
+        if term < self.current_term:
+            return self.current_term, False
+
+        if term > self.current_term or self.role == Role.CANDIDATE:
+            self._become_follower(term)
+
+        self.leader_id = leader_id
+
+        if prev_log_index >= 0:
+            if prev_log_index >= len(self.log):
+                return self.current_term, False
+            if self.log[prev_log_index].term != prev_log_term:
+                return self.current_term, False
+
+        for i, entry in enumerate(entries):
+            idx = prev_log_index + 1 + i
+            if idx < len(self.log):
+                if self.log[idx].term != entry.term:
+                    self.log.truncate_from(idx)
+                    self.log.append(entry)
+            else:
+                self.log.append(entry)
+
+        if leader_commit > self.commit_index:
+            self.commit_index = min(leader_commit, len(self.log) - 1)
+            self._apply_committed()
+
+        return self.current_term, True
+
+    def on_request_vote(
+        self, term: int, candidate_id: str, last_log_index: int, last_log_term: int
+    ) -> tuple[int, bool]:
+        if term < self.current_term:
+            return self.current_term, False
+
+        if term > self.current_term:
+            self._become_follower(term)
+
+        vote_granted = False
+        if self.voted_for in (None, candidate_id):
+            my_last_index = len(self.log) - 1
+            my_last_term = self.log[my_last_index].term if self.log else 0
+
+            log_ok = last_log_term > my_last_term or (
+                last_log_term == my_last_term and last_log_index >= my_last_index
+            )
+
+            if log_ok:
+                self.voted_for = candidate_id
+                self.last_heartbeat = asyncio.get_event_loop().time()
+                vote_granted = True
+
+        return self.current_term, vote_granted
+
+    # API
+    async def submit_pixel(self, x: int, y: int, color: int) -> bool:
+        if self.role == Role.LEADER:
+            if (
+                self._pending_commits is None
+                or self._pending_commits is None
+                or self.next_index is None
+            ):
+                return False
+
             entry = LogEntry(
                 term=self.current_term,
-                index=self.log.get_last_log_index() + 1,
-                command="pixel",
-                data=json.dumps(data).encode("utf-8"),
+                index=self.log.last_index + 1,
+                x=x,
+                y=y,
+                color=color,
             )
             self.log.append(entry)
 
-            threshold = (len(self.peers) + 1) // 2 + 1
+            future = asyncio.get_event_loop().create_future()
+            self._pending_commits[entry.index] = future
 
-            requests = []
-            for peer in self.peers:
-                prev_commit_index = self.peer_commit_index[peer.host]
-                next_commit_index = prev_commit_index + 1
-                prev_term = 0
-                if prev_commit_index > 0:
-                    prev_term = self.log[prev_commit_index].term
-                requests.append(
-                    self.grpc_client.append_entries(
-                        peer,
-                        self.current_term,
-                        self.node_id,
-                        prev_commit_index,
-                        prev_term,
-                        self.log.get_entries_after(next_commit_index),
-                        self.commit_index,
-                    )
-                )
-
-            responses = await asyncio.gather(*requests, return_exceptions=True)
-
-            # map each response to its peer and filter out failed responses
-            responses = zip(self.peers, responses, strict=False)
-            responses = [
-                (peer, resp) for peer, resp in responses if isinstance(resp, AppendEntriesResponse)
-            ]
-
-            # update peer last commit indices
-            for peer, resp in responses:
-                self.peer_commit_index[peer.host] = resp.match_index
-
-            # count self in successful commits
-            success_count = 1 + sum(1 for _, resp in responses if resp.success)
-
-            if success_count < threshold:
+            try:
+                return await asyncio.wait_for(future, timeout=5.0)
+            except TimeoutError:
+                del self._pending_commits[entry.index]
+                return False
+        else:
+            if not self.leader_id:
                 return False
 
-            # commit the entry if majority have replicated it
-            self.commit_index = self.log.get_last_log_index()
-            await self.apply_command(entry.command, data)
-        else:
-            if self.leader_id:
-                # TODO: find leader peer
-                leader_peer = None
-                if leader_peer:
-                    await self.grpc_client.set_pixel(leader_peer, x, y, color, user_id)
-        return True
-
-    async def peers_health_check(self, attempts: int = 3, delay: float = 1.0):
-        for peer in self.peers:
-            for _ in range(attempts):
-                try:
-                    await self.grpc_client.health_check(peer)
-                except Exception:
-                    await asyncio.sleep(delay)
-
-    async def apply_command(self, command: str, data: bytes | dict):
-        if isinstance(data, bytes):
-            try:
-                data = json.loads(data.decode("utf-8"))
-            except json.JSONDecodeError:
-                return
-        match command:
-            case "pixel" if isinstance(data, dict):
-                self.canvas.update(data["x"], data["y"], data["color"])
-                await client_manager.broadcast("pixel", data)
-            case _:
-                pass
+            leader_peer = self._get_peer(self.leader_id)
+            if leader_peer:
+                await self.grpc_client.submit_pixel(leader_peer, x, y, color)
+        return False

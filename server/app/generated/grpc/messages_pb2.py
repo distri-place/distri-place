@@ -24,31 +24,31 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0emessages.proto\x12\x12\x61pp.generated.grpc\"G\n\x0fSetPixelRequest\x12\t\n\x01x\x18\x01 \x01(\x03\x12\t\n\x01y\x18\x02 \x01(\x03\x12\r\n\x05\x63olor\x18\x03 \x01(\t\x12\x0f\n\x07user_id\x18\x04 \x01(\t\"\"\n\x10SetPixelResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\"g\n\x12RequestVoteRequest\x12\x0c\n\x04term\x18\x01 \x01(\x03\x12\x14\n\x0c\x63\x61ndidate_id\x18\x02 \x01(\t\x12\x16\n\x0elast_log_index\x18\x03 \x01(\x03\x12\x15\n\rlast_log_term\x18\x04 \x01(\x03\"9\n\x13RequestVoteResponse\x12\x0c\n\x04term\x18\x01 \x01(\x03\x12\x14\n\x0cvote_granted\x18\x02 \x01(\x08\"\xac\x01\n\x14\x41ppendEntriesRequest\x12\x0c\n\x04term\x18\x01 \x01(\x03\x12\x11\n\tleader_id\x18\x02 \x01(\t\x12\x16\n\x0eprev_log_index\x18\x03 \x01(\x03\x12\x15\n\rprev_log_term\x18\x04 \x01(\x03\x12-\n\x07\x65ntries\x18\x05 \x03(\x0b\x32\x1c.app.generated.grpc.LogEntry\x12\x15\n\rleader_commit\x18\x06 \x01(\x03\"K\n\x15\x41ppendEntriesResponse\x12\x0c\n\x04term\x18\x01 \x01(\x03\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x13\n\x0bmatch_index\x18\x03 \x01(\x03\"F\n\x08LogEntry\x12\x0c\n\x04term\x18\x01 \x01(\x03\x12\r\n\x05index\x18\x02 \x01(\x03\x12\x0f\n\x07\x63ommand\x18\x03 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x04 \x01(\x0c\"%\n\x12HealthCheckRequest\x12\x0f\n\x07node_id\x18\x01 \x01(\t\"\x8c\x01\n\x13HealthCheckResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\x0f\n\x07node_id\x18\x02 \x01(\t\x12\x12\n\nraft_state\x18\x03 \x01(\t\x12\x14\n\x0c\x63urrent_term\x18\x04 \x01(\x03\x12\x14\n\x0c\x63ommit_index\x18\x05 \x01(\x03\x12\x14\n\x0clast_applied\x18\x06 \x01(\x03\x32\x87\x03\n\x08RaftNode\x12^\n\x0bRequestVote\x12&.app.generated.grpc.RequestVoteRequest\x1a\'.app.generated.grpc.RequestVoteResponse\x12\x64\n\rAppendEntries\x12(.app.generated.grpc.AppendEntriesRequest\x1a).app.generated.grpc.AppendEntriesResponse\x12^\n\x0bHealthCheck\x12&.app.generated.grpc.HealthCheckRequest\x1a\'.app.generated.grpc.HealthCheckResponse\x12U\n\x08SetPixel\x12#.app.generated.grpc.SetPixelRequest\x1a$.app.generated.grpc.SetPixelResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0emessages.proto\x12\x12\x61pp.generated.grpc\"9\n\x12SubmitPixelRequest\x12\t\n\x01x\x18\x01 \x01(\x03\x12\t\n\x01y\x18\x02 \x01(\x03\x12\r\n\x05\x63olor\x18\x03 \x01(\x03\"&\n\x13SubmitPixelResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\"g\n\x12RequestVoteRequest\x12\x0c\n\x04term\x18\x01 \x01(\x03\x12\x14\n\x0c\x63\x61ndidate_id\x18\x02 \x01(\t\x12\x16\n\x0elast_log_index\x18\x03 \x01(\x03\x12\x15\n\rlast_log_term\x18\x04 \x01(\x03\"9\n\x13RequestVoteResponse\x12\x0c\n\x04term\x18\x01 \x01(\x03\x12\x14\n\x0cvote_granted\x18\x02 \x01(\x08\"\xac\x01\n\x14\x41ppendEntriesRequest\x12\x0c\n\x04term\x18\x01 \x01(\x03\x12\x11\n\tleader_id\x18\x02 \x01(\t\x12\x16\n\x0eprev_log_index\x18\x03 \x01(\x03\x12\x15\n\rprev_log_term\x18\x04 \x01(\x03\x12-\n\x07\x65ntries\x18\x05 \x03(\x0b\x32\x1c.app.generated.grpc.LogEntry\x12\x15\n\rleader_commit\x18\x06 \x01(\x03\"K\n\x15\x41ppendEntriesResponse\x12\x0c\n\x04term\x18\x01 \x01(\x03\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x13\n\x0bmatch_index\x18\x03 \x01(\x03\"L\n\x08LogEntry\x12\x0c\n\x04term\x18\x01 \x01(\x03\x12\r\n\x05index\x18\x02 \x01(\x03\x12\t\n\x01x\x18\x03 \x01(\x03\x12\t\n\x01y\x18\x04 \x01(\x03\x12\r\n\x05\x63olor\x18\x05 \x01(\x03\"%\n\x12HealthCheckRequest\x12\x0f\n\x07node_id\x18\x01 \x01(\t\"\x8c\x01\n\x13HealthCheckResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\x0f\n\x07node_id\x18\x02 \x01(\t\x12\x12\n\nraft_state\x18\x03 \x01(\t\x12\x14\n\x0c\x63urrent_term\x18\x04 \x01(\x03\x12\x14\n\x0c\x63ommit_index\x18\x05 \x01(\x03\x12\x14\n\x0clast_applied\x18\x06 \x01(\x03\x32\x90\x03\n\x08RaftNode\x12^\n\x0bRequestVote\x12&.app.generated.grpc.RequestVoteRequest\x1a\'.app.generated.grpc.RequestVoteResponse\x12\x64\n\rAppendEntries\x12(.app.generated.grpc.AppendEntriesRequest\x1a).app.generated.grpc.AppendEntriesResponse\x12^\n\x0bHealthCheck\x12&.app.generated.grpc.HealthCheckRequest\x1a\'.app.generated.grpc.HealthCheckResponse\x12^\n\x0bSubmitPixel\x12&.app.generated.grpc.SubmitPixelRequest\x1a\'.app.generated.grpc.SubmitPixelResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'messages_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_SETPIXELREQUEST']._serialized_start=38
-  _globals['_SETPIXELREQUEST']._serialized_end=109
-  _globals['_SETPIXELRESPONSE']._serialized_start=111
-  _globals['_SETPIXELRESPONSE']._serialized_end=145
-  _globals['_REQUESTVOTEREQUEST']._serialized_start=147
-  _globals['_REQUESTVOTEREQUEST']._serialized_end=250
-  _globals['_REQUESTVOTERESPONSE']._serialized_start=252
-  _globals['_REQUESTVOTERESPONSE']._serialized_end=309
-  _globals['_APPENDENTRIESREQUEST']._serialized_start=312
-  _globals['_APPENDENTRIESREQUEST']._serialized_end=484
-  _globals['_APPENDENTRIESRESPONSE']._serialized_start=486
-  _globals['_APPENDENTRIESRESPONSE']._serialized_end=561
-  _globals['_LOGENTRY']._serialized_start=563
-  _globals['_LOGENTRY']._serialized_end=633
-  _globals['_HEALTHCHECKREQUEST']._serialized_start=635
-  _globals['_HEALTHCHECKREQUEST']._serialized_end=672
-  _globals['_HEALTHCHECKRESPONSE']._serialized_start=675
-  _globals['_HEALTHCHECKRESPONSE']._serialized_end=815
-  _globals['_RAFTNODE']._serialized_start=818
-  _globals['_RAFTNODE']._serialized_end=1209
+  _globals['_SUBMITPIXELREQUEST']._serialized_start=38
+  _globals['_SUBMITPIXELREQUEST']._serialized_end=95
+  _globals['_SUBMITPIXELRESPONSE']._serialized_start=97
+  _globals['_SUBMITPIXELRESPONSE']._serialized_end=135
+  _globals['_REQUESTVOTEREQUEST']._serialized_start=137
+  _globals['_REQUESTVOTEREQUEST']._serialized_end=240
+  _globals['_REQUESTVOTERESPONSE']._serialized_start=242
+  _globals['_REQUESTVOTERESPONSE']._serialized_end=299
+  _globals['_APPENDENTRIESREQUEST']._serialized_start=302
+  _globals['_APPENDENTRIESREQUEST']._serialized_end=474
+  _globals['_APPENDENTRIESRESPONSE']._serialized_start=476
+  _globals['_APPENDENTRIESRESPONSE']._serialized_end=551
+  _globals['_LOGENTRY']._serialized_start=553
+  _globals['_LOGENTRY']._serialized_end=629
+  _globals['_HEALTHCHECKREQUEST']._serialized_start=631
+  _globals['_HEALTHCHECKREQUEST']._serialized_end=668
+  _globals['_HEALTHCHECKRESPONSE']._serialized_start=671
+  _globals['_HEALTHCHECKRESPONSE']._serialized_end=811
+  _globals['_RAFTNODE']._serialized_start=814
+  _globals['_RAFTNODE']._serialized_end=1214
 # @@protoc_insertion_point(module_scope)

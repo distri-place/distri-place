@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 import grpc.aio as grpc
@@ -11,8 +10,8 @@ from app.generated.grpc.messages_pb2 import (
     HealthCheckResponse,
     RequestVoteRequest,
     RequestVoteResponse,
-    SetPixelRequest,
-    SetPixelResponse,
+    SubmitPixelRequest,
+    SubmitPixelResponse,
 )
 from app.generated.grpc.messages_pb2_grpc import RaftNodeServicer, add_RaftNodeServicer_to_server
 from app.raft.node import RaftNode
@@ -25,99 +24,42 @@ class RaftServices(RaftNodeServicer):
         self.node = raft_node
 
     async def RequestVote(self, request: RequestVoteRequest, context) -> RequestVoteResponse:
-        await self.node._reset_election_timeout()
-
-        if request.term > self.node.current_term:
-            from app.raft.node import Role
-
-            self.node.role = Role.FOLLOWER
-            self.node.current_term = request.term
-            self.node.voted_for = None
-            self.node.leader_id = None
-
-        lli = self.node.log.get_last_log_index()
-        llt = self.node.log.get_last_log_term()
-
-        vote_granted = False
-        up_to_date = request.last_log_term > llt or (
-            request.last_log_term == llt and request.last_log_index >= lli
+        term, vote_granted = self.node.on_request_vote(
+            term=request.term,
+            candidate_id=request.candidate_id,
+            last_log_index=request.last_log_index,
+            last_log_term=request.last_log_term,
         )
 
-        if (
-            request.term == self.node.current_term
-            and up_to_date
-            and (self.node.voted_for in (None, request.candidate_id))
-        ):
-            self.node.voted_for = request.candidate_id
-            vote_granted = True
-            self.node.leader_id = None
-
-        return RequestVoteResponse(term=self.node.current_term, vote_granted=vote_granted)
+        return RequestVoteResponse(
+            term=term,
+            vote_granted=vote_granted,
+        )
 
     async def AppendEntries(self, request: AppendEntriesRequest, context) -> AppendEntriesResponse:
-        if request.term < self.node.current_term:
-            return AppendEntriesResponse(term=self.node.current_term, success=False, match_index=-1)
-
-        await self.node._reset_election_timeout()
-
-        if request.term > self.node.current_term or self.node.role.value != "follower":
-            from app.raft.node import Role
-
-            self.node.role = Role.FOLLOWER
-            self.node.current_term = request.term
-            self.node.voted_for = None
-            self.node.leader_id = request.leader_id
-        else:
-            self.node.leader_id = request.leader_id
-
-        if request.prev_log_index > self.node.log.get_last_log_index():
-            return AppendEntriesResponse(
-                term=self.node.current_term,
-                success=False,
-                match_index=self.node.log.get_last_log_index(),
-            )
-
-        def get_term_at(idx: int) -> int:
-            return self.node.log.get_term_at_index(idx)
-
-        if request.prev_log_index > 0:
-            if get_term_at(request.prev_log_index) != request.prev_log_term:
-                self.node.log.truncate_from(request.prev_log_index)
-                return AppendEntriesResponse(
-                    term=self.node.current_term,
-                    success=False,
-                    match_index=self.node.log.get_last_log_index(),
-                )
-
-        for entry in request.entries:
-            if entry.index <= self.node.log.get_last_log_index():
-                if get_term_at(entry.index) != entry.term:
-                    self.node.log.truncate_from(entry.index)
-                    self.node.log.append(entry)
-                    await self.node.apply_command(entry.command, entry.data)
-            else:
-                self.node.log.append(entry)
-                await self.node.apply_command(entry.command, entry.data)
-
-        if request.leader_commit > self.node.commit_index:
-            self.node.commit_index = min(request.leader_commit, self.node.log.get_last_log_index())
+        term, success = self.node.on_append_entries(
+            term=request.term,
+            leader_id=request.leader_id,
+            prev_log_index=request.prev_log_index,
+            prev_log_term=request.prev_log_term,
+            entries=list(request.entries),
+            leader_commit=request.leader_commit,
+        )
 
         return AppendEntriesResponse(
-            term=self.node.current_term,
-            success=True,
-            match_index=self.node.log.get_last_log_index(),
+            term=term,
+            success=success,
         )
 
     async def HealthCheck(self, request: HealthCheckRequest, context) -> HealthCheckResponse:
-        return HealthCheckResponse(node_id=self.node.node_id, status=await self.node.get_status())
+        return HealthCheckResponse(node_id=self.node.node_id, status="ok")
 
-    async def SetPixel(self, request: SetPixelRequest, context) -> SetPixelResponse:
-        assert self.node.leader_id == self.node.node_id, "SetPixel can only be called on the leader"
-        await self.node.set_pixel(request.x, request.y, request.color, request.user_id)
-        return SetPixelResponse(status="ok")
+    async def SubmitPixel(self, request: SubmitPixelRequest, context) -> SubmitPixelResponse:
+        await self.node.submit_pixel(request.x, request.y, request.color)
+        return SubmitPixelResponse(success=True)
 
 
-async def run_grpc_server(raft_node: RaftNode):
+async def run_grpc_server(raft_node: RaftNode) -> grpc.Server:
     server = grpc.server()
     services = RaftServices(raft_node)
 
@@ -129,9 +71,4 @@ async def run_grpc_server(raft_node: RaftNode):
     await server.start()
     logger.info(f"gRPC server started on {listen_addr}")
 
-    try:
-        await server.wait_for_termination()
-    except KeyboardInterrupt:
-        await server.stop(10)
-    except asyncio.CancelledError:
-        await server.stop(1)
+    return server

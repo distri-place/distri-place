@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 
 
 class PeerNode(BaseModel):
+    node_id: str = Field(...)
     host: str = Field(...)
     http_port: int = Field(...)
     grpc_port: int = Field(...)
