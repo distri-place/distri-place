@@ -3,16 +3,20 @@ import json
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
-from app.client.manager import manager as client_manager
-from app.dependencies import get_node_instance
+from app.client.manager import ClientManager
+from app.dependencies import get_client_manager_instance, get_node_instance
 from app.raft.node import RaftNode
 
 router = APIRouter()
 
 
 @router.websocket("/")
-async def websocket_endpoint(ws: WebSocket, node: RaftNode = Depends(get_node_instance)):
-    client_id = await client_manager.connect(ws)
+async def websocket_endpoint(
+    ws: WebSocket,
+    node: RaftNode = Depends(get_node_instance),
+    manager: ClientManager = Depends(get_client_manager_instance),
+):
+    client_id = await manager.connect(ws)
     try:
         while True:
             data = json.loads(await ws.receive_text())
@@ -43,4 +47,4 @@ async def websocket_endpoint(ws: WebSocket, node: RaftNode = Depends(get_node_in
     except WebSocketDisconnect:
         pass
     finally:
-        await client_manager.disconnect(client_id)
+        await manager.disconnect(client_id)
