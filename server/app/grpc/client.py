@@ -27,7 +27,14 @@ class RaftClient:
         peer_key = f"{peer.host}:{peer.grpc_port}"
         if peer_key not in self._stubs:
             if peer_key not in self._channels:
-                self._channels[peer_key] = grpc.insecure_channel(peer.grpc_address)
+                options = [
+                    ('grpc.default_compression_algorithm', 5),
+                    ('grpc.default_timeout_ms', 10000),
+                    ('grpc.keepalive_time_ms', 10000),
+                    ('grpc.keepalive_timeout_ms', 5000),
+                    ('grpc.keepalive_permit_without_calls', 1),
+                ]
+                self._channels[peer_key] = grpc.insecure_channel(peer.grpc_address, options=options)
             self._stubs[peer_key] = RaftNodeStub(self._channels[peer_key])
         return self._stubs[peer_key]
 
