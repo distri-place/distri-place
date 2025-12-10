@@ -195,15 +195,15 @@ class RaftNode:
         logger.debug(f"Node {self.node_id}: called _apply_committed()")
         while self.last_applied < self.commit_index:
             self.last_applied += 1
-            entry = self.log[self.last_applied]
+            entry = self.log[self.last_applied - 1]
             self.canvas.update(entry.x, entry.y, entry.color)
 
             if (
                 self.role == Role.LEADER
                 and self._pending_commits is not None
-                and self.last_applied in self._pending_commits
+                and entry.index in self._pending_commits
             ):
-                self._pending_commits.pop(self.last_applied).set_result(True)
+                self._pending_commits.pop(entry.index).set_result(True)
 
     # handlers
     def on_append_entries(
