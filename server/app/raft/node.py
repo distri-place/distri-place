@@ -271,14 +271,17 @@ class RaftNode:
     # API
     async def submit_pixel(self, x: int, y: int, color: int) -> bool:
         logger.debug(f"Node {self.node_id}: called submit_pixel(x={x}, y={y}, color={color})")
+        logger.debug(f"Node {self.node_id}: role={self.role.name}, leader_id={self.leader_id}")
         if self.role == Role.LEADER:
             if (
                 self._pending_commits is None
                 or self._pending_commits is None
                 or self.next_index is None
             ):
+                logger.debug(f"Node {self.node_id}: leader missing required state, returning False")
                 return False
 
+            logger.debug(f"Node {self.node_id}: leader processing pixel submission")
             entry = LogEntry(
                 term=self.current_term,
                 index=self.log.last_index + 1,
@@ -287,24 +290,34 @@ class RaftNode:
                 color=color,
             )
             self.log.append(entry)
+            logger.debug(f"Node {self.node_id}: added entry to log at index {entry.index}")
 
             future = asyncio.get_event_loop().create_future()
             self._pending_commits[entry.index] = future
 
             try:
-                return await asyncio.wait_for(future, timeout=5.0)
+                logger.debug(f"Node {self.node_id}: waiting for commit with 5s timeout")
+                result = await asyncio.wait_for(future, timeout=5.0)
+                logger.debug(f"Node {self.node_id}: commit completed with result={result}")
+                return result
             except TimeoutError:
+                logger.debug(f"Node {self.node_id}: commit timed out after 5s")
                 del self._pending_commits[entry.index]
                 return False
         else:
             if not self.leader_id:
+                logger.debug(f"Node {self.node_id}: no leader_id, returning False")
                 return False
 
             leader_peer = self._get_peer(self.leader_id)
             if leader_peer:
                 try:
+                    logger.debug(f"Node {self.node_id}: forwarding to leader {self.leader_id}")
                     response = await self.grpc_client.submit_pixel(leader_peer, x, y, color)
+                    logger.debug(f"Node {self.node_id}: leader response success={response.success}")
                     return response.success
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Node {self.node_id}: exception forwarding to leader: {e}")
                     return False
+            logger.debug(f"Node {self.node_id}: leader_peer not found for leader_id={self.leader_id}")
             return False
