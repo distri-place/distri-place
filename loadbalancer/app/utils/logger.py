@@ -44,9 +44,9 @@ LOGGING_CONFIG = {
         "handlers": ["default"],
     },
     "loggers": {
-        "uvicorn": {"handlers": ["default"], "level": LOG_LEVEL.value, "propagate": False},
-        "uvicorn.error": {"level": LOG_LEVEL.value},
-        "uvicorn.access": {"level": LOG_LEVEL.value},
+        "uvicorn": {"handlers": ["default"], "level": LogLevel.INFO.value, "propagate": False},
+        "uvicorn.error": {"level": LogLevel.INFO.value},
+        "uvicorn.access": {"level": LogLevel.INFO.value},
     },
 }
 
