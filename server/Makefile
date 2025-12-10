@@ -25,7 +25,30 @@ setup-prod:
 
 .PHONY: start-node-1
 start-node-1:
-	$(PYTHON_VENV) -m app.main --node_id node-1 --http_port 8000 --grpc_port 8001 --host $(VM1_HOST) --peers $(VM2_HOST):8001,$(VM3_HOST):8001
+	export NODE_ID="node-1" && \
+	export HTTP_PORT=8000 && \
+	export GRPC_PORT=8001 && \
+	export HOST="0.0.0.0" && \
+	export PEERS="$(VM2_HOST):8000:8001,$(VM3_HOST):8000:8001" && \
+	$(PYTHON_VENV) -m app.main
+
+.PHONY: start-node-2
+start-node-2:
+	export NODE_ID="node-2" && \
+	export HTTP_PORT=8000 && \
+	export GRPC_PORT=8001 && \
+	export HOST="0.0.0.0" && \
+	export PEERS="$(VM1_HOST):8000:8001,$(VM3_HOST):8000:8001" && \
+	$(PYTHON_VENV) -m app.main
+
+.PHONY: start-node-3
+start-node-3:
+	export NODE_ID="node-3" && \
+	export HTTP_PORT=8000 && \
+	export GRPC_PORT=8001 && \
+	export HOST="0.0.0.0" && \
+	export PEERS="$(VM1_HOST):8000:8001,$(VM2_HOST):8000:8001" && \
+	$(PYTHON_VENV) -m app.main
 
 .PHONY: stop-nodes
 stop-nodes:

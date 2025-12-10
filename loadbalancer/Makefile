@@ -3,7 +3,12 @@ VENV := venv
 PIP := $(VENV)/bin/pip
 PYTHON_VENV := $(VENV)/bin/python
 PORT := 8080
-BACKENDS := localhost:8000 localhost:8001 localhost:8002
+SERVERS := localhost:8000 localhost:8001 localhost:8002
+
+VM1_HOST=svm-11.cs.helsinki.fi
+VM2_HOST=svm-11-2.cs.helsinki.fi
+VM3_HOST=svm-11-3.cs.helsinki.fi
+SERVERS_DEMO=$(VM1_HOST):8000,$(VM2_HOST):8000,$(VM3_HOST):8000
 
 .PHONY: setup
 setup:
@@ -19,7 +24,12 @@ setup-prod:
 
 .PHONY: start
 start:
-	$(PYTHON_VENV) -m app.main $(PORT) $(BACKENDS)
+	$(PYTHON_VENV) -m app.main $(PORT) $(SERVERS)
+
+.PHONY: start-demo
+start-demo:
+	export SERVERS="$(SERVERS_DEMO)" && \
+	$(PYTHON_VENV) -m app.main $(PORT) $(SERVERS_DEMO)
 
 .PHONY: stop
 stop:
