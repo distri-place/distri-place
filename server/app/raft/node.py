@@ -144,15 +144,19 @@ class RaftNode:
 
         entries = self.log[next_idx:]
 
-        resp = await self.grpc_client.append_entries(
-            peer,
-            term=self.current_term,
-            leader_id=self.node_id,
-            prev_log_index=prev_log_index,
-            prev_log_term=prev_log_term,
-            entries=entries,
-            leader_commit=self.commit_index,
-        )
+        try:
+            resp = await self.grpc_client.append_entries(
+                peer,
+                term=self.current_term,
+                leader_id=self.node_id,
+                prev_log_index=prev_log_index,
+                prev_log_term=prev_log_term,
+                entries=entries,
+                leader_commit=self.commit_index,
+            )
+        except Exception as e:
+            logger.debug(f"Node {self.node_id}: append_entries to {peer.node_id} failed: {e}")
+            return
 
         if resp.term > self.current_term:
             self._become_follower(resp.term)

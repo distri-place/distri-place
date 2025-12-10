@@ -29,10 +29,13 @@ class RaftClient:
             if peer_key not in self._channels:
                 options = [
                     ('grpc.default_compression_algorithm', 5),
-                    ('grpc.default_timeout_ms', 10000),
-                    ('grpc.keepalive_time_ms', 10000),
-                    ('grpc.keepalive_timeout_ms', 5000),
+                    ('grpc.default_timeout_ms', 60000),
+                    ('grpc.keepalive_time_ms', 30000),
+                    ('grpc.keepalive_timeout_ms', 15000),
                     ('grpc.keepalive_permit_without_calls', 1),
+                    ('grpc.http2.max_pings_without_data', 0),
+                    ('grpc.http2.min_time_between_pings_ms', 10000),
+                    ('grpc.http2.min_ping_interval_without_data_ms', 300000),
                 ]
                 self._channels[peer_key] = grpc.insecure_channel(peer.grpc_address, options=options)
             self._stubs[peer_key] = RaftNodeStub(self._channels[peer_key])
@@ -48,7 +51,7 @@ class RaftClient:
             last_log_index=last_log_index,
             last_log_term=last_log_term,
         )
-        return await stub.RequestVote(request)
+        return await stub.RequestVote(request, timeout=30.0)
 
     async def append_entries(
         self,
@@ -69,17 +72,17 @@ class RaftClient:
             entries=entries,
             leader_commit=leader_commit,
         )
-        return await stub.AppendEntries(request)
+        return await stub.AppendEntries(request, timeout=30.0)
 
     async def health_check(self, peer: PeerNode) -> HealthCheckResponse:
         stub = self._get_stub(peer)
         request = HealthCheckRequest(node_id=self.node_id)
-        return await stub.HealthCheck(request)
+        return await stub.HealthCheck(request, timeout=15.0)
 
     async def submit_pixel(self, peer: PeerNode, x: int, y: int, color: int) -> SubmitPixelResponse:
         stub = self._get_stub(peer)
         request = SubmitPixelRequest(x=x, y=y, color=color)
-        return await stub.SubmitPixel(request)
+        return await stub.SubmitPixel(request, timeout=30.0)
 
     async def broadcast_request_votes(
         self, peers: list[PeerNode], term: int, last_log_index: int, last_log_term: int
