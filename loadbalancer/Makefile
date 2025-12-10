@@ -24,13 +24,16 @@ setup-prod:
 
 .PHONY: start
 start:
-	$(PYTHON_VENV) -m app.main $(PORT) $(SERVERS)
+	export SERVERS="$(SERVERS)" && \
+	export PORT=$(PORT) && \
+	$(PYTHON_VENV) -m app.main
 
 .PHONY: start-demo
 start-demo:
 	export SERVERS="$(SERVERS_DEMO)" && \
 	export LOG_LEVEL="DEBUG" && \
-	$(PYTHON_VENV) -m app.main $(PORT) $(SERVERS_DEMO)
+	export PORT=$(PORT) && \
+	$(PYTHON_VENV) -m app.main
 
 .PHONY: stop
 stop:
