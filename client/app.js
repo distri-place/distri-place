@@ -54,10 +54,6 @@
         });
     }
 
-    function fromHex(hex) {
-        hex = hex.replace('#', '');
-        return parseInt(hex, 16) >>> 0;
-    }
 
     function setPixelLocal(x, y, color) {
         const img = ctx.getImageData(x, y, 1, 1);
@@ -69,9 +65,9 @@
     }
 
     function pickPixel(x, y) {
-        const data = ctx.getImageData(x, y, 1, 1);
-        const [R, G, B] = data.map(v => v.toString(16).padStart(2, '0'))
-        colorInput.value = `#${R}${G}${B}`;
+        const data = ctx.getImageData(x, y, 1, 1).data;
+        const color = (data[0] << 16) | (data[1] << 8) | data[2];
+        colorInput.value = '#' + color.toString(16).padStart(6, '0');
     }
 
     function canvasXY(evt) {
@@ -84,7 +80,11 @@
     canvas.addEventListener('click', (evt) => {
         const [x, y] = canvasXY(evt);
         if (evt.shiftKey) pickPixel(x, y);
-        else setPixel(x, y, colorInput.value);
+        else {
+            const hexColor = colorInput.value.replace('#', '');
+            const intColor = parseInt(hexColor, 16) || 0;
+            setPixel(x, y, intColor);
+        }
     });
 
     function connect() {
@@ -146,7 +146,7 @@
                     case 'pixel':
                         const {x, y, color, user_id} = msg.content;
                         appendLog(`<- pixel set: (${x}, ${y}) = ${color} by ${user_id}${user_id === userId ? ' (you)' : ''}`);
-                        setPixelLocal(x, y, fromHex(color));
+                        setPixelLocal(x, y, color);
                         return;
                     case 'pong':
                         appendLog('<- pong');
