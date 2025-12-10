@@ -286,5 +286,9 @@ class RaftNode:
 
             leader_peer = self._get_peer(self.leader_id)
             if leader_peer:
-                await self.grpc_client.submit_pixel(leader_peer, x, y, color)
-        return False
+                try:
+                    response = await self.grpc_client.submit_pixel(leader_peer, x, y, color)
+                    return response.success
+                except Exception:
+                    return False
+            return False
