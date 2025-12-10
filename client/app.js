@@ -170,9 +170,8 @@
                         return;
                     case "pixel":
                         const { x, y, color, user_id } = msg.content;
-                        appendLog(
-                            `<- pixel set: (${x}, ${y}) = ${color} by ${user_id}${user_id === userId ? " (you)" : ""}`
-                        );
+                        const userDisplay = user_id ? ` by ${user_id}${user_id === userId ? " (you)" : ""}` : "";
+                        appendLog(`<- pixel set: (${x}, ${y}) = ${color}${userDisplay}`);
                         setPixelLocal(x, y, color);
                         return;
                     case "pong":
