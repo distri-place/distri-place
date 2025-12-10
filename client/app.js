@@ -18,6 +18,7 @@
     let W = 64,
         H = 64;
     let isConnected = false;
+    let pending = new Map();
 
     function setIsConnected(v) {
         if (v === isConnected) return;
@@ -39,19 +40,29 @@
     }
 
     async function setPixel(x, y, color) {
+        const key = `${x},${y}`;
+        setPixelLocal(x, y, color);
+        pending.set(key, color);
+
         if (!isConnected) connect().then();
-        await fetch("http://localhost:8080/client/pixel", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                user_id: userId,
-                x: x,
-                y: y,
-                color: color,
-            }),
-        });
+
+        try {
+            const response = await fetch("http://localhost:8080/client/pixel", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_id: userId, x, y, color }),
+            });
+
+            if (response.ok) pending.delete(key);
+            else setTimeout(() => revertPixel(x, y), 100);
+        } catch (error) {
+            setTimeout(() => revertPixel(x, y), 100);
+        }
+    }
+
+    function revertPixel(x, y) {
+        pending.delete(`${x},${y}`);
+        setPixelLocal(x, y, 0);
     }
 
     function setPixelLocal(x, y, color) {
@@ -170,9 +181,16 @@
                         return;
                     case "pixel":
                         const { x, y, color, user_id } = msg.content;
-                        const userDisplay = user_id ? ` by ${user_id}${user_id === userId ? " (you)" : ""}` : "";
-                        appendLog(`<- pixel set: (${x}, ${y}) = ${color}${userDisplay}`);
-                        setPixelLocal(x, y, color);
+                        const key = `${x},${y}`;
+                        if (!pending.has(key)) setPixelLocal(x, y, color);
+                        else if (pending.get(key) === color)
+                            pending.delete(key);
+                        const userDisplay = user_id
+                            ? ` by ${user_id}${user_id === userId ? " (you)" : ""}`
+                            : "";
+                        appendLog(
+                            `<- pixel set: (${x}, ${y}) = ${color}${userDisplay}`
+                        );
                         return;
                     case "pong":
                         appendLog("<- pong");
