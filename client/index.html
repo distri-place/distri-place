@@ -1,61 +1,71 @@
 <!doctype html>
 <html lang="en">
-<head>
-    <meta charset="utf-8"/>
-    <title>r/place – tiny client</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <style>
-        body {
-            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-            margin: 16px;
-        }
+    <head>
+        <meta charset="utf-8" />
+        <title>r/place – tiny client</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <style>
+            body {
+                font-family:
+                    ui-sans-serif,
+                    system-ui,
+                    -apple-system,
+                    Segoe UI,
+                    Roboto,
+                    sans-serif;
+                margin: 16px;
+            }
 
-        .row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-bottom: 8px;
-        }
+            .row {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                flex-wrap: wrap;
+                margin-bottom: 8px;
+            }
 
-        #status {
-            font-size: 12px;
-            opacity: 0.8;
-        }
+            #status {
+                font-size: 12px;
+                opacity: 0.8;
+            }
 
-        canvas {
-            image-rendering: pixelated;
-            border: 1px solid #ddd;
-            background: #fff;
-            cursor: crosshair;
-        }
+            canvas {
+                image-rendering: pixelated;
+                border: 1px solid #ddd;
+                background: #fff;
+                cursor: crosshair;
+            }
 
-        input[type="text"] {
-            width: 340px;
-            padding: 6px 8px;
-        }
+            input[type="text"] {
+                width: 340px;
+                padding: 6px 8px;
+            }
 
-        button {
-            padding: 6px 10px;
-        }
+            button {
+                padding: 6px 10px;
+            }
 
-        .small {
-            font-size: 12px;
-            opacity: 0.75;
-        }
-    </style>
-</head>
-<body>
-<div class="row">
-    <button id="connect">Connect</button>
-    <label>Color <input id="color" type="color" value="#ff0000"/></label>
-    <span id="status" class="small">disconnected</span>
-</div>
+            .small {
+                font-size: 12px;
+                opacity: 0.75;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="row">
+            <button id="connect">Connect</button>
+            <label
+                >Color <input id="color" type="color" value="#ff0000"
+            /></label>
+            <span id="status" class="small">disconnected</span>
+        </div>
 
-<canvas id="board" width="64" height="64"></canvas>
-<div class="small">Tip: Shift-click picks the color from the pixel under the cursor.</div>
-<div id="log"></div>
+        <canvas id="board" width="64" height="64"></canvas>
+        <div class="small">
+            Tip: Shift-click picks the color from the pixel under the cursor.
+        </div>
+        <div id="log"></div>
 
-<script src="app.js"></script>
-</body>
+        <script src="app.js"></script>
+    </body>
 </html>

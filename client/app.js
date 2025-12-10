@@ -1,32 +1,33 @@
 (() => {
     const userId = crypto.randomUUID();
-    const connectBtn = document.getElementById('connect');
-    const colorInput = document.getElementById('color');
-    const canvas = document.getElementById('board');
-    const ctx = canvas.getContext('2d', {willReadFrequently: true});
-    const statusEl = document.getElementById('status');
-    const logEl = document.getElementById('log');
+    const connectBtn = document.getElementById("connect");
+    const colorInput = document.getElementById("color");
+    const canvas = document.getElementById("board");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const statusEl = document.getElementById("status");
+    const logEl = document.getElementById("log");
     const PING_INTERVAL = 5000;
     const RECONNECT_DELAY = 500;
     const PATIENCE = 3000;
 
     const SCALE = 8;
-    canvas.style.width = (canvas.width * SCALE) + 'px';
-    canvas.style.height = (canvas.height * SCALE) + 'px';
+    canvas.style.width = canvas.width * SCALE + "px";
+    canvas.style.height = canvas.height * SCALE + "px";
 
     let ws = null;
-    let W = 64, H = 64;
+    let W = 64,
+        H = 64;
     let isConnected = false;
 
     function setIsConnected(v) {
         if (v === isConnected) return;
         isConnected = v;
-        setStatus(v ? 'connected' : 'disconnected');
-        connectBtn.textContent = v ? 'Disconnect' : 'Connect';
+        setStatus(v ? "connected" : "disconnected");
+        connectBtn.textContent = v ? "Disconnect" : "Connect";
     }
 
     function appendLog(text) {
-        const p = document.createElement('div');
+        const p = document.createElement("div");
         p.textContent = text;
         logEl.appendChild(p);
         logEl.scrollTop = logEl.scrollHeight;
@@ -37,23 +38,21 @@
         appendLog(text);
     }
 
-
     async function setPixel(x, y, color) {
-        if (!isConnected) connect().then()
+        if (!isConnected) connect().then();
         await fetch("http://localhost:8080/client/pixel", {
             method: "POST",
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
             body: JSON.stringify({
                 user_id: userId,
                 x: x,
                 y: y,
-                color: color
-            })
+                color: color,
+            }),
         });
     }
-
 
     function setPixelLocal(x, y, color) {
         const img = ctx.getImageData(x, y, 1, 1);
@@ -64,24 +63,50 @@
         ctx.putImageData(img, x, y);
     }
 
+    async function loadInitialCanvas() {
+        try {
+            const response = await fetch("http://localhost:8080/client/pixels");
+            const data = await response.json();
+            const pixels = data.pixels;
+
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let y = 0; y < H; y++) {
+                for (let x = 0; x < W; x++) {
+                    const pixelIndex = y * W + x;
+                    const color = pixels[pixelIndex];
+                    if (color !== 0) {
+                        setPixelLocal(x, y, color);
+                    }
+                }
+            }
+        } catch (error) {
+            appendLog(`Error loading initial canvas: ${error.message}`);
+        }
+    }
+
     function pickPixel(x, y) {
         const data = ctx.getImageData(x, y, 1, 1).data;
         const color = (data[0] << 16) | (data[1] << 8) | data[2];
-        colorInput.value = '#' + color.toString(16).padStart(6, '0');
+        colorInput.value = "#" + color.toString(16).padStart(6, "0");
     }
 
     function canvasXY(evt) {
         const rect = canvas.getBoundingClientRect();
         const cx = Math.floor((evt.clientX - rect.left) / (rect.width / W));
         const cy = Math.floor((evt.clientY - rect.top) / (rect.height / H));
-        return [Math.max(0, Math.min(W - 1, cx)), Math.max(0, Math.min(H - 1, cy))];
+        return [
+            Math.max(0, Math.min(W - 1, cx)),
+            Math.max(0, Math.min(H - 1, cy)),
+        ];
     }
 
-    canvas.addEventListener('click', (evt) => {
+    canvas.addEventListener("click", (evt) => {
         const [x, y] = canvasXY(evt);
         if (evt.shiftKey) pickPixel(x, y);
         else {
-            const hexColor = colorInput.value.replace('#', '');
+            const hexColor = colorInput.value.replace("#", "");
             const intColor = parseInt(hexColor, 16) || 0;
             setPixel(x, y, intColor);
         }
@@ -89,35 +114,37 @@
 
     function connect() {
         return new Promise((resolve) => {
-            disconnect()
+            disconnect();
             ws = new WebSocket("ws://localhost:8080/ws/");
-            setStatus('connecting…');
+            setStatus("connecting…");
 
             let timeout = undefined;
 
             function ping() {
-                ws.send(JSON.stringify({type: 'ping'}));
-                appendLog('ping ->');
+                ws.send(JSON.stringify({ type: "ping" }));
+                appendLog("ping ->");
                 timeout = setTimeout(disconnect, PATIENCE);
             }
 
             ws.onopen = () => {
-                setIsConnected(true)
+                setIsConnected(true);
                 timeout = setTimeout(ping, PING_INTERVAL);
-                resolve(ws)
-                ws.send(JSON.stringify({
-                    type: 'connect',
-                    content: { user_id: userId }
-                }))
+                resolve(ws);
+                ws.send(
+                    JSON.stringify({
+                        type: "connect",
+                        content: { user_id: userId },
+                    })
+                );
             };
 
             ws.onclose = () => {
-                setIsConnected(false)
-                setStatus('disconnected');
+                setIsConnected(false);
+                setStatus("disconnected");
                 clearTimeout(timeout);
             };
 
-            ws.onerror = () => setStatus('error (see console)');
+            ws.onerror = () => setStatus("error (see console)");
 
             ws.onmessage = (ev) => {
                 clearTimeout(timeout);
@@ -132,32 +159,31 @@
                 }
 
                 switch (msg.type) {
-                    case 'error':
-                        setStatus(`error: ${msg.message || '?'}`);
+                    case "error":
+                        setStatus(`error: ${msg.message || "?"}`);
                         return;
-                    case 'connected':
-                        const canvasData = msg.content.canvas;
+                    case "connected":
                         const { id: nodeId, role } = msg.content.node;
                         appendLog(`<- connected: node=${nodeId} (${role})`);
-                        const img = new Image();
-                        img.onload = () => ctx.drawImage(img, 0, 0)
-                        img.src = "data:image/png;base64," + canvasData
+                        // Load initial canvas state from HTTP
+                        loadInitialCanvas();
                         return;
-                    case 'pixel':
-                        const {x, y, color, user_id} = msg.content;
-                        appendLog(`<- pixel set: (${x}, ${y}) = ${color} by ${user_id}${user_id === userId ? ' (you)' : ''}`);
+                    case "pixel":
+                        const { x, y, color, user_id } = msg.content;
+                        appendLog(
+                            `<- pixel set: (${x}, ${y}) = ${color} by ${user_id}${user_id === userId ? " (you)" : ""}`
+                        );
                         setPixelLocal(x, y, color);
                         return;
-                    case 'pong':
-                        appendLog('<- pong');
+                    case "pong":
+                        appendLog("<- pong");
                         return;
                     default:
                         setStatus(`error: unknown message type "${msg.type}"`);
                         return;
                 }
-            }
-        })
-
+            };
+        });
     }
 
     function disconnect(reconnect = false) {
@@ -169,11 +195,10 @@
         if (reconnect) setTimeout(connect, RECONNECT_DELAY);
     }
 
-    connect()
+    connect();
 
-    connectBtn.addEventListener('click', () => {
-        if (isConnected) disconnect()
+    connectBtn.addEventListener("click", () => {
+        if (isConnected) disconnect();
         else connect();
-
     });
 })();
