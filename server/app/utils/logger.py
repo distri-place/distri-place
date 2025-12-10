@@ -47,6 +47,7 @@ LOGGING_CONFIG = {
         "uvicorn": {"handlers": ["default"], "level": LogLevel.INFO.value, "propagate": False},
         "uvicorn.error": {"level": LogLevel.INFO.value},
         "uvicorn.access": {"level": LogLevel.INFO.value},
+        "grpc._cython.cygrpc": {"level": LogLevel.INFO.value},
     },
 }
 
