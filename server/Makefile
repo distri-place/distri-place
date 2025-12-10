@@ -6,6 +6,11 @@ PORT := 8000
 HOST := 0.0.0.0
 NODE_ID := node-1
 
+VM1_HOST=svm-11.cs.helsinki.fi
+VM2_HOST=svm-11-2.cs.helsinki.fi
+VM3_HOST=svm-11-3.cs.helsinki.fi
+GATEWAY_HOST=melkki.cs.helsinki.fi
+
 .PHONY: setup
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -18,9 +23,9 @@ setup-prod:
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
 
-.PHONY: start-node
-start-node:
-	$(PYTHON_VENV) -m app.main --node_id $(NODE_ID) --http_port $(PORT) --host $(HOST)
+.PHONY: start-node-1
+start-node-1:
+	$(PYTHON_VENV) -m app.main --node_id node-1 --http_port 8000 --grpc_port 8001 --host $(VM1_HOST) --peers $(VM2_HOST):8001,$(VM3_HOST):8001
 
 .PHONY: stop-nodes
 stop-nodes:
