@@ -29,7 +29,7 @@ start-node-1:
 	export NODE_ID="node-1" && \
 	export HTTP_PORT=8000 && \
 	export GRPC_PORT=8001 && \
-	export HOST="0.0.0.0" && \
+	export HOST=$(VM1_HOST) && \
 	export PEERS="$(VM2_HOST):8000:8001,$(VM3_HOST):8000:8001" && \
 	$(PYTHON_VENV) -m app.main
 
@@ -39,7 +39,7 @@ start-node-2:
 	export NODE_ID="node-2" && \
 	export HTTP_PORT=8000 && \
 	export GRPC_PORT=8001 && \
-	export HOST="0.0.0.0" && \
+	export HOST=$(VM2_HOST) && \
 	export PEERS="$(VM1_HOST):8000:8001,$(VM3_HOST):8000:8001" && \
 	$(PYTHON_VENV) -m app.main
 
@@ -49,7 +49,7 @@ start-node-3:
 	export NODE_ID="node-3" && \
 	export HTTP_PORT=8000 && \
 	export GRPC_PORT=8001 && \
-	export HOST="0.0.0.0" && \
+	export HOST=$(VM3_HOST) && \
 	export PEERS="$(VM1_HOST):8000:8001,$(VM2_HOST):8000:8001" && \
 	$(PYTHON_VENV) -m app.main
 
