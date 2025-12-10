@@ -11,12 +11,17 @@
     const PATIENCE = 3000;
 
     const SCALE = 8;
+
+    let W = 100,
+        H = 100;
+
+    canvas.width = W;
+    canvas.height = H;
+
     canvas.style.width = canvas.width * SCALE + "px";
     canvas.style.height = canvas.height * SCALE + "px";
 
     let ws = null;
-    let W = 64,
-        H = 64;
     let isConnected = false;
     let pending = new Map();
 
@@ -80,6 +85,7 @@
             const data = await response.json();
             const pixels = data.pixels;
 
+            // Clear canvas properly
             ctx.fillStyle = "#000000";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -92,6 +98,7 @@
                     }
                 }
             }
+            // Rest of your code...
         } catch (error) {
             appendLog(`Error loading initial canvas: ${error.message}`);
         }
@@ -105,12 +112,19 @@
 
     function canvasXY(evt) {
         const rect = canvas.getBoundingClientRect();
-        const cx = Math.floor((evt.clientX - rect.left) / (rect.width / W));
-        const cy = Math.floor((evt.clientY - rect.top) / (rect.height / H));
-        return [
-            Math.max(0, Math.min(W - 1, cx)),
-            Math.max(0, Math.min(H - 1, cy)),
-        ];
+        const scaleX = rect.width / W;
+        const scaleY = rect.height / H;
+
+        const cx = Math.min(
+            Math.max(0, Math.round((evt.clientX - rect.left) / scaleX)),
+            W - 1
+        );
+        const cy = Math.min(
+            Math.max(0, Math.round((evt.clientY - rect.top) / scaleY)),
+            H - 1
+        );
+
+        return [cx, cy];
     }
 
     canvas.addEventListener("click", (evt) => {
