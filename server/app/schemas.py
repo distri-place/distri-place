@@ -14,4 +14,3 @@ class PeerNode(BaseModel):
     @property
     def grpc_address(self) -> str:
         return f"{self.host}:{self.grpc_port}"
-

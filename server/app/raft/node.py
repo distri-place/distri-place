@@ -70,7 +70,7 @@ class RaftNode:
         logger.debug(f"Node {self.node_id}: called _leader_loop()")
         while self.role == Role.LEADER:
             await self._send_heartbeats()
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1.0)
 
     async def _start_election(self):
         logger.debug(f"Node {self.node_id}: called _start_election()")
@@ -112,7 +112,7 @@ class RaftNode:
         self.role = Role.LEADER
         self.leader_id = self.node_id
 
-        self.next_index = {p.node_id: len(self.log) for p in self.peers}
+        self.next_index = {p.node_id: self.log.last_index + 1 for p in self.peers}
         self.match_index = {p.node_id: 0 for p in self.peers}
         self._pending_commits = {}
 
@@ -154,6 +154,7 @@ class RaftNode:
                 entries=entries,
                 leader_commit=self.commit_index,
             )
+            logger.debug(f"Node {self.node_id}: append_entries to {peer.node_id} succeeded: term={resp.term}, success={resp.success}")
         except Exception as e:
             logger.debug(f"Node {self.node_id}: append_entries to {peer.node_id} failed: {e}")
             return
@@ -166,7 +167,7 @@ class RaftNode:
             self.next_index[peer.node_id] = next_idx + len(entries)
             self.match_index[peer.node_id] = self.next_index[peer.node_id] - 1
         else:
-            self.next_index[peer.node_id] = max(0, next_idx - 1)
+            self.next_index[peer.node_id] = max(1, next_idx - 1)
 
     def _get_peer(self, node_id: str) -> PeerNode | None:
         logger.debug(f"Node {self.node_id}: called _get_peer(node_id={node_id})")
@@ -179,7 +180,7 @@ class RaftNode:
         if self.role != Role.LEADER or self.match_index is None or self.next_index is None:
             return
 
-        for n in range(self.commit_index + 1, len(self.log)):
+        for n in range(self.commit_index + 1, len(self.log) + 1):
             if self.log.term_at(n) != self.current_term:
                 continue
 
@@ -204,7 +205,7 @@ class RaftNode:
         logger.debug(f"Node {self.node_id}: called _apply_committed()")
         while self.last_applied < self.commit_index:
             self.last_applied += 1
-            entry = self.log[self.last_applied - 1]
+            entry = self.log[self.last_applied]
             self.canvas.update(entry.x, entry.y, entry.color)
 
             if (
@@ -237,23 +238,22 @@ class RaftNode:
 
         self.leader_id = leader_id
 
-        if prev_log_index >= 0:
-            if prev_log_index >= len(self.log):
+        if prev_log_index > 0:
+            if prev_log_index > len(self.log):
                 return self.current_term, False
             if self.log[prev_log_index].term != prev_log_term:
                 return self.current_term, False
 
-        for i, entry in enumerate(entries):
-            idx = prev_log_index + 1 + i
-            if idx < len(self.log):
-                if self.log[idx].term != entry.term:
-                    self.log.truncate_from(idx)
+        for entry in entries:
+            if entry.index <= len(self.log):
+                if self.log[entry.index].term != entry.term:
+                    self.log.truncate_from(entry.index)
                     self.log.append(entry)
             else:
                 self.log.append(entry)
 
         if leader_commit > self.commit_index:
-            self.commit_index = min(leader_commit, len(self.log) - 1)
+            self.commit_index = min(leader_commit, self.log.last_index)
             self._apply_committed()
 
         return self.current_term, True
@@ -272,14 +272,17 @@ class RaftNode:
 
         vote_granted = False
         if self.voted_for in (None, candidate_id):
-            my_last_index = len(self.log) - 1
-            my_last_term = self.log[my_last_index].term if self.log else 0
+            my_last_index = self.log.last_index
+            my_last_term = self.log.last_term
 
             log_ok = last_log_term > my_last_term or (
                 last_log_term == my_last_term and last_log_index >= my_last_index
             )
 
             if log_ok:
+                logger.debug(
+                    f"Node {self.node_id}: granting vote to {candidate_id} for term {term}"
+                )
                 self.voted_for = candidate_id
                 self._last_heartbeat = asyncio.get_event_loop().time()
                 vote_granted = True
@@ -316,7 +319,8 @@ class RaftNode:
                 return result
             except TimeoutError:
                 logger.debug(f"Node {self.node_id}: commit timed out after 30s")
-                del self._pending_commits[entry.index]
+                if self._pending_commits is not None and entry.index in self._pending_commits:
+                    del self._pending_commits[entry.index]
                 return False
         else:
             if not self.leader_id:

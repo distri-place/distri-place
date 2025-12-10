@@ -1,4 +1,5 @@
 import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -35,7 +36,9 @@ async def get_all_pixels(canvas: Canvas = Depends(get_canvas_instance)):
 async def set_pixel(request: SetPixelRequest, node: RaftNode = Depends(get_node_instance)):
     success = await node.submit_pixel(request.x, request.y, request.color)
     if not success:
-        logger.warning(f"Failed to submit pixel at ({request.x}, {request.y}) with color {request.color} - returning 500")
+        logger.warning(
+            f"Failed to submit pixel at ({request.x}, {request.y}) with color {request.color} - returning 500"
+        )
         raise HTTPException(status_code=500, detail="Something went wrong")
 
     return SetPixelResponse(success=success)
