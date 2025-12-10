@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 from enum import Enum
+import logging
 import random
 
 from app.canvas.state import Canvas
@@ -10,6 +11,8 @@ from app.generated.grpc.messages_pb2 import LogEntry
 from app.grpc.client import RaftClient
 from app.raft.log import RaftLog
 from app.schemas import PeerNode
+
+logger = logging.getLogger(__name__)
 
 
 class Role(Enum):
@@ -46,6 +49,7 @@ class RaftNode:
         self._last_heartbeat = asyncio.get_event_loop().time()
 
     async def start(self):
+        logger.debug(f"Node {self.node_id}: called start()")
         while True:
             if self.role == Role.LEADER:
                 await self._leader_loop()
@@ -53,6 +57,7 @@ class RaftNode:
                 await self._follower_candidate_loop()
 
     async def _follower_candidate_loop(self):
+        logger.debug(f"Node {self.node_id}: called _follower_candidate_loop()")
         while self.role in (Role.FOLLOWER, Role.CANDIDATE):
             now = asyncio.get_event_loop().time()
             elapsed = now - self._last_heartbeat
@@ -63,11 +68,13 @@ class RaftNode:
             await asyncio.sleep(0.1)
 
     async def _leader_loop(self):
+        logger.debug(f"Node {self.node_id}: called _leader_loop()")
         while self.role == Role.LEADER:
             await self._send_heartbeats()
             await asyncio.sleep(0.5)
 
     async def _start_election(self):
+        logger.debug(f"Node {self.node_id}: called _start_election()")
         self.role = Role.CANDIDATE
         self.current_term += 1
         self.voted_for = self.node_id
@@ -102,6 +109,7 @@ class RaftNode:
             self._become_leader()
 
     def _become_leader(self):
+        logger.debug(f"Node {self.node_id}: called _become_leader()")
         self.role = Role.LEADER
         self.leader_id = self.node_id
 
@@ -109,17 +117,20 @@ class RaftNode:
         self.match_index = {p.node_id: 0 for p in self.peers}
 
     def _become_follower(self, term: int):
+        logger.debug(f"Node {self.node_id}: called _become_follower(term={term})")
         self.role = Role.FOLLOWER
         self.current_term = term
         self.voted_for = None
         self.last_heartbeat = asyncio.get_event_loop().time()
 
     async def _send_heartbeats(self):
+        logger.debug(f"Node {self.node_id}: called _send_heartbeats()")
         tasks = [self._send_append_entries(peer) for peer in self.peers]
         await asyncio.gather(*tasks, return_exceptions=True)
         self._try_advance_commit_index()
 
     async def _send_append_entries(self, peer: PeerNode):
+        logger.debug(f"Node {self.node_id}: called _send_append_entries(peer={peer.node_id})")
         if self.role != Role.LEADER or self.next_index is None or self.match_index is None:
             return
 
@@ -150,6 +161,7 @@ class RaftNode:
             self.next_index[peer.node_id] = max(0, next_idx - 1)
 
     def _get_peer(self, node_id: str) -> PeerNode | None:
+        logger.debug(f"Node {self.node_id}: called _get_peer(node_id={node_id})")
         for peer in self.peers:
             if peer.node_id == node_id:
                 return peer
@@ -175,6 +187,7 @@ class RaftNode:
         self._apply_committed()
 
     def _apply_committed(self):
+        logger.debug(f"Node {self.node_id}: called _apply_committed()")
         while self.last_applied < self.commit_index:
             self.last_applied += 1
             entry = self.log[self.last_applied]
@@ -197,6 +210,7 @@ class RaftNode:
         entries: list[LogEntry],
         leader_commit: int,
     ) -> tuple[int, bool]:
+        logger.debug(f"Node {self.node_id}: called on_append_entries(term={term}, leader_id={leader_id})")
         self._last_heartbeat = asyncio.get_event_loop().time()
 
         if term < self.current_term:
@@ -231,6 +245,7 @@ class RaftNode:
     def on_request_vote(
         self, term: int, candidate_id: str, last_log_index: int, last_log_term: int
     ) -> tuple[int, bool]:
+        logger.debug(f"Node {self.node_id}: called on_request_vote(term={term}, candidate_id={candidate_id})")
         if term < self.current_term:
             return self.current_term, False
 
@@ -255,6 +270,7 @@ class RaftNode:
 
     # API
     async def submit_pixel(self, x: int, y: int, color: int) -> bool:
+        logger.debug(f"Node {self.node_id}: called submit_pixel(x={x}, y={y}, color={color})")
         if self.role == Role.LEADER:
             if (
                 self._pending_commits is None
