@@ -115,6 +115,7 @@ class RaftNode:
 
         self.next_index = {p.node_id: len(self.log) for p in self.peers}
         self.match_index = {p.node_id: 0 for p in self.peers}
+        self._pending_commits = {}
 
     def _become_follower(self, term: int):
         logger.debug(f"Node {self.node_id}: called _become_follower(term={term})")
@@ -122,6 +123,9 @@ class RaftNode:
         self.current_term = term
         self.voted_for = None
         self.last_heartbeat = asyncio.get_event_loop().time()
+        self._pending_commits = None
+        self.next_index = None
+        self.match_index = None
 
     async def _send_heartbeats(self):
         logger.debug(f"Node {self.node_id}: called _send_heartbeats()")
@@ -275,7 +279,6 @@ class RaftNode:
         if self.role == Role.LEADER:
             if (
                 self._pending_commits is None
-                or self._pending_commits is None
                 or self.next_index is None
             ):
                 logger.debug(f"Node {self.node_id}: leader missing required state, returning False")
