@@ -24,7 +24,7 @@ class RaftLog:
 
     def truncate_from(self, index: int) -> None:
         if index <= len(self._entries):
-            self._entries = self._entries[: index - 1]
+            self._entries = self._entries[:index]
 
     @property
     def last_index(self) -> int:

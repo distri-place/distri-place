@@ -37,6 +37,7 @@ class RaftNode:
 
         # Volatile for all
         self.commit_index = 0
+        self.last_applied = 0
         self.peers = peers
         self.peer_commit_index: dict[str, int] = defaultdict(int)
 
@@ -122,7 +123,7 @@ class RaftNode:
         self.role = Role.FOLLOWER
         self.current_term = term
         self.voted_for = None
-        self.last_heartbeat = asyncio.get_event_loop().time()
+        self._last_heartbeat = asyncio.get_event_loop().time()
         self._pending_commits = None
         self.next_index = None
         self.match_index = None
@@ -267,7 +268,7 @@ class RaftNode:
 
             if log_ok:
                 self.voted_for = candidate_id
-                self.last_heartbeat = asyncio.get_event_loop().time()
+                self._last_heartbeat = asyncio.get_event_loop().time()
                 vote_granted = True
 
         return self.current_term, vote_granted
