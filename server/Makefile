@@ -30,7 +30,7 @@ start-node-1:
 	export HTTP_PORT=8000 && \
 	export GRPC_PORT=8001 && \
 	export HOST="0.0.0.0" && \
-	export PEERS="$(VM2_HOST):8000:8001,$(VM3_HOST):8000:8001" && \
+	export PEERS="node-2:$(VM2_HOST):8000:8001,node-3:$(VM3_HOST):8000:8001" && \
 	$(PYTHON_VENV) -m app.main
 
 .PHONY: start-node-2
@@ -40,7 +40,7 @@ start-node-2:
 	export HTTP_PORT=8000 && \
 	export GRPC_PORT=8001 && \
 	export HOST="0.0.0.0" && \
-	export PEERS="$(VM1_HOST):8000:8001,$(VM3_HOST):8000:8001" && \
+	export PEERS="node-1:$(VM1_HOST):8000:8001,node-3:$(VM3_HOST):8000:8001" && \
 	$(PYTHON_VENV) -m app.main
 
 .PHONY: start-node-3
@@ -50,7 +50,7 @@ start-node-3:
 	export HTTP_PORT=8000 && \
 	export GRPC_PORT=8001 && \
 	export HOST="0.0.0.0" && \
-	export PEERS="$(VM1_HOST):8000:8001,$(VM2_HOST):8000:8001" && \
+	export PEERS="node-1:$(VM1_HOST):8000:8001,node-2:$(VM2_HOST):8000:8001" && \
 	$(PYTHON_VENV) -m app.main
 
 .PHONY: stop-nodes
