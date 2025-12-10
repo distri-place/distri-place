@@ -29,6 +29,7 @@ start:
 .PHONY: start-demo
 start-demo:
 	export SERVERS="$(SERVERS_DEMO)" && \
+	export LOG_LEVEL="DEBUG" && \
 	$(PYTHON_VENV) -m app.main $(PORT) $(SERVERS_DEMO)
 
 .PHONY: stop

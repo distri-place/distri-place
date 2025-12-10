@@ -25,6 +25,7 @@ setup-prod:
 
 .PHONY: start-node-1
 start-node-1:
+	export LOG_LEVEL="DEBUG" && \
 	export NODE_ID="node-1" && \
 	export HTTP_PORT=8000 && \
 	export GRPC_PORT=8001 && \
@@ -34,6 +35,7 @@ start-node-1:
 
 .PHONY: start-node-2
 start-node-2:
+	export LOG_LEVEL="DEBUG" && \
 	export NODE_ID="node-2" && \
 	export HTTP_PORT=8000 && \
 	export GRPC_PORT=8001 && \
@@ -43,6 +45,7 @@ start-node-2:
 
 .PHONY: start-node-3
 start-node-3:
+	export LOG_LEVEL="DEBUG" && \
 	export NODE_ID="node-3" && \
 	export HTTP_PORT=8000 && \
 	export GRPC_PORT=8001 && \
