@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from collections import defaultdict
 from enum import Enum
 import logging
 import random
@@ -129,6 +128,7 @@ class RaftNode:
 
     async def _send_heartbeats(self):
         logger.debug(f"Node {self.node_id}: called _send_heartbeats()")
+        logger.debug(f"Node {self.node_id}: match_index state: {self.match_index}")
         tasks = [self._send_append_entries(peer) for peer in self.peers]
         await asyncio.gather(*tasks, return_exceptions=True)
         self._try_advance_commit_index()
@@ -184,13 +184,19 @@ class RaftNode:
                 continue
 
             replicated = 1
+            replicated_peers = []
             for peer in self.peers:
                 if self.match_index.get(peer.node_id, 0) >= n:
                     replicated += 1
+                    replicated_peers.append(peer.node_id)
 
             majority = (len(self.peers) + 1) // 2 + 1
+            logger.debug(
+                f"Node {self.node_id}: index={n}, replicated={replicated}/{majority} (peers: {replicated_peers})"
+            )
             if replicated >= majority:
                 self.commit_index = n
+                logger.debug(f"Node {self.node_id}: committed index {n}")
 
         self._apply_committed()
 
@@ -218,7 +224,9 @@ class RaftNode:
         entries: list[LogEntry],
         leader_commit: int,
     ) -> tuple[int, bool]:
-        logger.debug(f"Node {self.node_id}: called on_append_entries(term={term}, leader_id={leader_id})")
+        logger.debug(
+            f"Node {self.node_id}: called on_append_entries(term={term}, leader_id={leader_id})"
+        )
         self._last_heartbeat = asyncio.get_event_loop().time()
 
         if term < self.current_term:
@@ -253,7 +261,9 @@ class RaftNode:
     def on_request_vote(
         self, term: int, candidate_id: str, last_log_index: int, last_log_term: int
     ) -> tuple[int, bool]:
-        logger.debug(f"Node {self.node_id}: called on_request_vote(term={term}, candidate_id={candidate_id})")
+        logger.debug(
+            f"Node {self.node_id}: called on_request_vote(term={term}, candidate_id={candidate_id})"
+        )
         if term < self.current_term:
             return self.current_term, False
 
@@ -281,10 +291,7 @@ class RaftNode:
         logger.debug(f"Node {self.node_id}: called submit_pixel(x={x}, y={y}, color={color})")
         logger.debug(f"Node {self.node_id}: role={self.role.name}, leader_id={self.leader_id}")
         if self.role == Role.LEADER:
-            if (
-                self._pending_commits is None
-                or self.next_index is None
-            ):
+            if self._pending_commits is None or self.next_index is None:
                 logger.debug(f"Node {self.node_id}: leader missing required state, returning False")
                 return False
 
@@ -303,12 +310,12 @@ class RaftNode:
             self._pending_commits[entry.index] = future
 
             try:
-                logger.debug(f"Node {self.node_id}: waiting for commit with 5s timeout")
-                result = await asyncio.wait_for(future, timeout=5.0)
+                logger.debug(f"Node {self.node_id}: waiting for commit with 30s timeout")
+                result = await asyncio.wait_for(future, timeout=30.0)
                 logger.debug(f"Node {self.node_id}: commit completed with result={result}")
                 return result
             except TimeoutError:
-                logger.debug(f"Node {self.node_id}: commit timed out after 5s")
+                logger.debug(f"Node {self.node_id}: commit timed out after 30s")
                 del self._pending_commits[entry.index]
                 return False
         else:
@@ -326,5 +333,7 @@ class RaftNode:
                 except Exception as e:
                     logger.debug(f"Node {self.node_id}: exception forwarding to leader: {e}")
                     return False
-            logger.debug(f"Node {self.node_id}: leader_peer not found for leader_id={self.leader_id}")
+            logger.debug(
+                f"Node {self.node_id}: leader_peer not found for leader_id={self.leader_id}"
+            )
             return False
