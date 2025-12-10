@@ -2,7 +2,7 @@ from collections.abc import Callable
 
 
 class Canvas:
-    def __init__(self, size: int = 100, on_update: Callable[[int, int, int], None] | None = None):
+    def __init__(self, size: int = 64, on_update: Callable[[int, int, int], None] | None = None):
         self.size = size
         self.grid = [[0] * size for _ in range(size)]
         self.on_update = on_update
