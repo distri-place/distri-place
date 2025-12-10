@@ -39,7 +39,6 @@ class RaftNode:
         self.commit_index = 0
         self.last_applied = 0
         self.peers = peers
-        self.peer_commit_index: dict[str, int] = defaultdict(int)
 
         # Volatile for leaders
         self.next_index: dict[str, int] | None = None
