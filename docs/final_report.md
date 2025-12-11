@@ -36,7 +36,7 @@ In this report we will discuss the project design and implementation goals and t
 
 ## 2.1 Project Objectives
 
-The project objective was to be a shared canvas that works seamlessly with multitude of users each working on the canvas in real time. 
+The project objective was to be a shared canvas that works seamlessly with multitude of users each working on the canvas in real time.
 The distributed aspects of the project that we mainly were focusing on were replication among multiple nodes, global synchronization and availability, so that the users are always able to connect to our system.
 
 ## 2.2 Core Features
@@ -56,26 +56,94 @@ The core feature of our application for users is the ability to collaborate in c
 - reading from followers
 - writes only to leader
 
-## 3.1 System Architecture
+## 3.1 Architecture
 
-- Overview diagram
-- Components and responsibilities
+distri-place uses a leader-based replicated architecture with 3 server nodes.
+Each node runs identical code but assumes different roles (leader, follower or candidate) based on Raft consensus.
 
-## 3.2 Processes and Components
+```mermaid
+flowchart TB
+    C1[Client 1]
+    C2[Client 2]
+    C3[Client 3]
 
-- Node roles
-- Local vs distributed components
+    LB[Load Balancer]
 
-## 3.3 Communication Model
+    N1[Node 1]
+    N2[Node 2]
+    N3[Node 3]
 
-- Protocols used
-- Message types
-- Network topology
+    C1 & C2 & C3 --> LB
+    LB --> N1 & N2 & N3
 
-## 3.4 Mapping of Design to Source Code
+    N1 <-->|Raft| N2
+    N2 <-->|Raft| N3
+    N1 <-->|Raft| N3
+```
 
-- Where to find architectural decisions in the code
-- Important modules and functions
+- Client: Static HTML/JS page served locally with Nginx. Connects to load balancer for HTTP requests and WebSocket.
+- Load Balancer: Simple Python round-robin proxy. Distributes client requests across the 3 nodes. In the demo running in melkki.
+- Nodes: Python FastAPI servers. In the demo running in svm-11-1, svm-11-2, svm-11-3. Each node runs:
+  - HTTP API (GET /client/pixels, POST /client/pixel)
+  - WebSocket server for real-time updates
+  - gRPC server for Raft communication with peers
+  - In-memory canvas state (64x64 grid)
+
+### 3.1.1 Why this architecture
+
+- Full replication ensures any node can serve reads
+- Leader-based writes provide strong consistency
+- Raft unifies leader election and state replication in one protocol
+
+### 3.1.2 Code mapping
+
+- ./server/app/api/client/routes.py — FastAPI HTTP
+- ./server/app/api/ws/routes.py — WebSocket handlers
+- ./server/app/raft/node.py — Raft node logic
+- ./server/app/raft/log.py — Raft log implementation
+- ./server/app/grpc/server.py — gRPC server for inter-node communication
+- ./server/app/grpc/client.py — gRPC client for inter-node communication
+- ./server/app/canvas/state.py — Canvas state and pixel operations
+
+## 3.2 Process
+
+## 3.2.1 Startup sequence:
+
+1. Node loads config (own ID, peer addresses, ports)
+2. Starts gRPC server for inter-node communication
+3. Starts FastAPI server for client connections
+4. Initializes as Raft follower with randomized election timeout
+5. If no heartbeat received, transitions to candidate and starts election
+
+## 3.2.2 Leader election (Raft):
+
+1. Follower times out → becomes candidate, increments term
+2. Votes for itself, sends `RequestVote` to peers
+3. If majority votes received → becomes leader
+4. Leader sends periodic `AppendEntries` heartbeats to maintain authority
+
+## 3.2.3 Node failure handling:
+
+- Followers detect leader failure via heartbeat timeout (150-300ms)
+- New election triggered automatically
+- Rejoining node syncs log from current leader
+
+## 3.3 Communication
+
+### 3.3.1 Client - Server
+
+| Protocol  | Endpoint         | Purpose                         |
+| --------- | ---------------- | ------------------------------- |
+| HTTP GET  | `/client/pixels` | Fetch current canvas pixels     |
+| HTTP POST | `/client/pixel`  | Submit a new pixel              |
+| WebSocket | `/ws`            | Receive real-time pixel updates |
+
+### 3.3.2 Server - Server
+
+| RPC             | Purpose                      |
+| --------------- | ---------------------------- |
+| `AppendEntries` | Logs replication + heartbeat |
+| `RequesVote`    | Leader election              |
 
 # 4. System Functionalities
 
