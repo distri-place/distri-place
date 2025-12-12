@@ -2,6 +2,8 @@
 
 Group 7 / Distributed Systems Course / 15.12.2025
 
+Viljami Ranta, Ilari Heikkinen, Antti Ollikkala, Joni Pesonen
+
 ## Table of Contents
 
 - [1. Introduction](#1-introduction)
