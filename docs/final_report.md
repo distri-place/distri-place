@@ -158,16 +158,15 @@ flowchart TB
 ## 4.4 Fault Tolerance and Recovery
 
 # 5. Scalability Evaluation
+Our system is technically highly scalable. With our project implementation adding more nodes is very easy and it does not affect the functionality of the system. The nodes keep following the leader-candidate-follower election system and other methods as described in raft. However scaling with just one leader is not ideal for the use cases of our project and our project goals. More of this just down below at #6
 
-- Ilari will fill
-
-- Multi-raft option
+Instead a better approach to scaling for our project would be for example to implement a multi-raft solution where the canvas is partitioned into multiple areas that each implement their own raft-environment. Each area would have their own leader and and followers for replication and fault tolerance. This approach would be a good option if our userbase were to grow very large and a single raft-cluster would experience congestion because of that. So the approach to scaling would have to be considered case by case and scaling just the single raft-cluster could be a good idea to a particular level.
 
 # 6. Performance Evaluation
 
 - Joni will fill
 
-- RAFT is pretty bad
+- RAFT is pretty bad (write latency could be one example thats not good for our particular project)
 
 # 7. Key Enablers and Lessons Learned
 
@@ -177,7 +176,11 @@ flowchart TB
 
 # 8. Groupwork
 
-- Ilari
+- Everyone participated equally to the project planning phase and drawing the first sketches of our project. The big decisions were made together.
+
+- Antti should get extra mention for the bigger effort on raft-implementation and Viljami for setting up the environment for the demo
+
+- Overall we are happy with how everyone participated to the project
 
 # 9. Appendices
 
