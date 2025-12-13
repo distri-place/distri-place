@@ -166,9 +166,17 @@ Instead a better approach to scaling for our project would be for example to imp
 
 # 6. Performance Evaluation
 
-- Joni will fill
+## 6.1 Latency
 
-- RAFT is pretty bad (write latency could be one example thats not good for our particular project)
+Pixel placement latency can be used to quantify the general perfomance of the system. It measures the time from client clicking a pixel to all clients seeing the updated canvas. The latency is built from a sequence of events:
+
+Client click > Server receives > 2PC complete > WS broadcast > Client render
+
+Most of the latency is from the Two-phase commit which runs for every new pixel. The most effective improvement would be to batch the requests so that you could commit multiple new pixels in one operation.
+
+## 6.2 Throughput
+
+Thoughput is the other important measure to quantify perfomance of the system. Our implementations uses a single leader for all writes for the full canvas. This is an obvious bottleneck when you add more clients. Successful commits per second measures the throughput for the system. Improving throughput could be done by sharding the canvas for multiple leaders. For example dividing the canvas into four regions which are managed by their own leaders.
 
 # 7. Key Enablers and Lessons Learned
 
