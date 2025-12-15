@@ -15,33 +15,41 @@ class HTTPHandler:
         self.client = httpx.AsyncClient(timeout=30.0)
 
     async def handle(self, request: Request) -> Response:
-        server = self.pool.get_next_server()
-        if not server:
+        if not self.pool.servers:
             return Response("no servers", status_code=503)
 
-        url = f"{server.http_url}{request.url.path}"
-        if request.url.query:
-            url += f"?{request.url.query}"
-
-        logger.debug(f"Proxying {request.method} {request.url.path} to {server.host}:{server.port}")
-
+        body = await request.body()
         headers = dict(request.headers)
         headers.pop("host", None)
         headers.pop("connection", None)
 
-        try:
-            body = await request.body()
-            resp = await self.client.request(
-                method=request.method,
-                url=url,
-                headers=headers,
-                content=body,
+        # Try all servers
+        for _ in range(len(self.pool.servers)):
+            server = self.pool.get_next_server()
+
+            url = f"{server.http_url}{request.url.path}"
+            if request.url.query:
+                url += f"?{request.url.query}"
+
+            logger.debug(
+                f"Proxying {request.method} {request.url.path} to {server.host}:{server.port}"
             )
 
-            return Response(
-                content=resp.content,
-                status_code=resp.status_code,
-                headers=dict(resp.headers),
-            )
-        except httpx.RequestError as e:
-            return Response(f"backend error: {e}", status_code=502)
+            try:
+                resp = await self.client.request(
+                    method=request.method,
+                    url=url,
+                    headers=headers,
+                    content=body,
+                )
+
+                return Response(
+                    content=resp.content,
+                    status_code=resp.status_code,
+                    headers=dict(resp.headers),
+                )
+            except httpx.RequestError as e:
+                logger.warning(f"Failed to connect to {server.host}:{server.port}: {e}")
+                continue
+
+        return Response("all servers failed", status_code=502)
