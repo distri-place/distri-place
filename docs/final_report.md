@@ -148,11 +148,42 @@ flowchart TB
 
 ## 4.1 Global State Management
 
+The global state of the system consists primarily of the shared canvas, represented as a fixed-size 64×64 grid of pixels. Each pixel is defined by its coordinates and color value. This state is fully replicated across all nodes in the Raft cluster.
+
+Rather than directly modifying the canvas state, all changes are expressed as log entries in the Raft log. A pixel placement operation is encoded as a deterministic command (x-coordinate, y-coordinate, color), which is appended to the leader’s log. Once the log entry is committed, it is applied to the in-memory canvas state on all nodes in the same order.
+
+This approach ensures that:
+ - All nodes eventually reach the same canvas state
+ - State transitions are deterministic and replayable
+ - New or recovering nodes can reconstruct the full canvas state by replaying the log
+
+Reads (fetching the current canvas) can be served by any node, since all nodes maintain a replicated and up-to-date view of the global state once entries are committed.
+
 ## 4.2 Consistency and Synchronization
+
+Distri-place provides strong consistency for write operations. At any given time, there is exactly one leader node responsible for accepting and ordering state changes. All pixel placement requests are either handled directly by the leader or forwarded to it if they arrive at a follower.
+
+Consistency is achieved through the Raft log replication mechanism:
+
+ 1. The leader appends a new pixel operation to its log.
+ 2. The leader replicates the log entry to followers using AppendEntries RPCs.
+ 3. Once a majority of nodes acknowledge the entry, it is considered committed.
+ 4. The committed entry is then applied to the canvas state on all nodes.
+
+Synchronization between clients is handled via WebSockets. After a log entry is committed and applied, the leader broadcasts the pixel update to all connected clients. This ensures that all users see updates in near real-time and in the same order, preserving a consistent view of the canvas.
 
 ## 4.3 Consensus Mechanism
 
+Consensus in Distri-place is implemented using the Raft consensus algorithm. Raft is responsible for both leader election and agreement on the order of state changes.
+
 ## 4.4 Fault Tolerance and Recovery
+
+Fault tolerance in Distri-place is achieved through replication and automated leader re-election. The system can tolerate failures of up to ⌊(N−1)/2⌋ nodes, where N is the total number of nodes in the cluster (in our case, one node out of three).
+
+If the leader fails:
+ - Followers stop receiving heartbeats.
+ - After a timeout, a new leader election is triggered.
+ - A new leader is elected without client intervention.
 
 # 5. Scalability Evaluation
 Our system is technically highly scalable. With our project implementation adding more nodes is very easy and it does not affect the functionality of the system. The nodes keep following the leader-candidate-follower election system and other methods as described in raft. However scaling with just one leader is not ideal for the use cases of our project and our project goals. More of this just down below at #6
