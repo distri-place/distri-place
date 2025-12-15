@@ -15,6 +15,8 @@ make dev-logs   # View logs
 
 ### Demo
 
+[![Demo Video](https://img.youtube.com/vi/-ALniSWCHyc/0.jpg)](https://www.youtube.com/watch?v=-ALniSWCHyc)
+
 ```bash
 make demo       # Run demo on university VMs using tmux
 make setup-ssh  # Setup SSH keys for university VMs
