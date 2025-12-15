@@ -17,7 +17,7 @@ def main():
     logger.info(f"Starting node {node_id}")
     logger.info(f"  HTTP port: {settings.HTTP_PORT}")
     logger.info(f"  gRPC port: {settings.GRPC_PORT}")
-    logger.info(f"  Peers: {settings.PEERS()}")
+    logger.info(f"  Peers: {settings.PEERS}")
 
     app = create_app()
 
