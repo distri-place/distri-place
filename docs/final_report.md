@@ -292,15 +292,60 @@ This means more nodes improve fault tolerance (a 5-node cluster can survive 2 fa
 
 ## 6.1 Latency
 
-Pixel placement latency can be used to quantify the general perfomance of the system. It measures the time from client clicking a pixel to all clients seeing the updated canvas. The latency is built from a sequence of events:
+Pixel placement latency can be used to quantify the general perfomance of the system.
+It measures the time from client clicking a pixel to all clients seeing the updated canvas.
+The latency is built from a sequence of events:
 
-Client click > Server receives > 2PC complete > WS broadcast > Client render
+Client click -> Load balancer -> Server receives -> Raft commit -> Canvas update -> WebSocket broadcast -> Client render
 
-Most of the latency is from the Two-phase commit which runs for every new pixel. The most effective improvement would be to batch the requests so that you could commit multiple new pixels in one operation.
+| Phase                   | Description                                            | Duration   |
+| ----------------------- | ------------------------------------------------------ | ---------- |
+| Client to load balancer | HTTP request from client to melkki                     | 10-30ms    |
+| Load balancer to node   | Round-robin forwarding to a server node                | 10-30ms    |
+| Leader forwarding       | If request hits follower, forwarded to leader via gRPC | 0-50ms     |
+| Raft commit             | Leader replicates to majority and commits              | 100-1000ms |
+| WebSocket broadcast     | Server pushes update to all connected clients          | 0-30ms     |
+
+Total latency is typically 100-1100ms depending on network and if the request hits the leader or a follower.
+
+The most significant portion of latency comes from the Raft commit phase, which requires at minimum one round-trip to a majority of nodes.
+
+The best improvement would be batching pixels into a single log entry.
+
+However, the latency is not visible to user since the client UI updates immediately on click, optimistically assuming success.
+If the update fails, the client will revert the update.
 
 ## 6.2 Throughput
 
-Thoughput is the other important measure to quantify perfomance of the system. Our implementations uses a single leader for all writes for the full canvas. This is an obvious bottleneck when you add more clients. Successful commits per second measures the throughput for the system. Improving throughput could be done by sharding the canvas for multiple leaders. For example dividing the canvas into four regions which are managed by their own leaders.
+Thoughput is the other important measure to quantify perfomance of the system.
+Our implementations uses a single leader for all writes for the full canvas.
+This is an obvious bottleneck when you add more clients.
+Successful commits per second measures the throughput for the system.
+Improving throughput could be done by sharding the canvas for multiple leaders.
+For example dividing the canvas into four regions which are managed by their own leaders.
+
+## 6.3 Setup
+
+Our observations are based on manual testing with the following setup:
+
+- 3 server nodes running on svm-11.cs.helsinki.fi, svm-11-2.cs.helsinki.fi, and svm-11-3.cs.helsinki.fi
+- Load balancer running on melkki.cs.helsinki.fi
+- Client accessed via localhost through SSH tunnel port forwarding to melkki
+- Latency measured using browser developer tools network tab
+
+## 6.4 Improvements
+
+Implemented:
+
+- gRPC with keepalive settings for persistent connections
+- Async Python with FastAPI for non-blocking I/O, allowing concurrent request handling
+- In-memory canvas state for fast reads without disk access
+- WebSocket connection proxying through load balancer for real-time updates
+
+Future:
+
+- Batching: Group multiple pixel operations into a single log entry.
+- Snapshotting: Periodically snapshot canvas state to speed up recovery.
 
 # 7. Key Enablers and Lessons Learned
 
