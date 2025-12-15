@@ -21,7 +21,7 @@ from app.raft.node import RaftNode
 
 def create_app() -> FastAPI:
     canvas = Canvas()
-    raft_node = RaftNode(node_id=settings.NODE_ID, peers=settings.PEERS, canvas=canvas)
+    raft_node = RaftNode(node_id=settings.NODE_ID, peers=settings.PEERS(), canvas=canvas)
     client_manager = ClientManager()
 
     set_canvas_instance(canvas)

@@ -154,7 +154,9 @@ class RaftNode:
                 entries=entries,
                 leader_commit=self.commit_index,
             )
-            logger.debug(f"Node {self.node_id}: append_entries to {peer.node_id} succeeded: term={resp.term}, success={resp.success}")
+            logger.debug(
+                f"Node {self.node_id}: append_entries to {peer.node_id} succeeded: term={resp.term}, success={resp.success}"
+            )
         except Exception as e:
             logger.debug(f"Node {self.node_id}: append_entries to {peer.node_id} failed: {e}")
             return

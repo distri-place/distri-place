@@ -29,9 +29,8 @@ class Settings(BaseSettings):
     )
 
     @computed_field
-    @property
     def PEERS(self) -> list[PeerNode]:
-        result = []
+        result: list[PeerNode] = []
         if not self.peers_string:
             return result
 
