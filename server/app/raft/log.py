@@ -23,7 +23,7 @@ class RaftLog:
             return self._entries[index - 1]
         if isinstance(index, slice):
             start = (index.start - 1) if index.start is not None else None
-            stop = (index.stop - 1) if index.stop is not None else None
+            stop = (index.stop) if index.stop is not None else None
             return self._entries[start:stop]
 
     def append(self, entry: LogEntry) -> None:
