@@ -252,9 +252,41 @@ In production we would improve this with persistent log storage and snapshots fo
 
 # 5. Scalability Evaluation
 
-Our system is technically highly scalable. With our project implementation adding more nodes is very easy and it does not affect the functionality of the system. The nodes keep following the leader-candidate-follower election system and other methods as described in raft. However scaling with just one leader is not ideal for the use cases of our project and our project goals. More of this just down below at #6
+Our system is technically highly scalable.
+However scaling with just one leader is not ideal for the use cases of our project and our project goals.
+More of this just down below at #6
 
-Instead a better approach to scaling for our project would be for example to implement a multi-raft solution where the canvas is partitioned into multiple areas that each implement their own raft-environment. Each area would have their own leader and and followers for replication and fault tolerance. This approach would be a good option if our userbase were to grow very large and a single raft-cluster would experience congestion because of that. So the approach to scaling would have to be considered case by case and scaling just the single raft-cluster could be a good idea to a particular level.
+Instead a better approach to scaling for our project would be for example to implement a multi-raft solution where the canvas is partitioned into multiple areas that each implement their own raft-environment.
+Each area would have their own leader and and followers for replication and fault tolerance.
+This approach would be a good option if our userbase were to grow very large and a single raft-cluster would experience congestion because of that.
+So the approach to scaling would have to be considered case by case and scaling just the single raft-cluster could be a good idea to a particular level.
+
+## 5.1 Adding More Nodes
+
+Adding a new node to the cluster is straightforward.
+A new node can be started with `make start-node` in the server directory, where the environment variables specify the node ID, ports, and peers.
+As long as the new node is configured with the correct peer hosts and all existing nodes are updated to include the new peer, the node will join the cluster and begin participating in Raft consensus.
+
+When a new node joins, it starts as a follower and the current leader begins sending AppendEntries RPCs to bring it up to date.
+The node catches up by receiving and applying all log entries.
+
+Adding nodes affects the quorum requirement for commits.
+Raft requires a majority of nodes to agree before committing an entry.
+With 3 nodes, quorum is 2. With 5 nodes, quorum increases to 3.
+This means more nodes improve fault tolerance (a 5-node cluster can survive 2 failures instead of 1) but also slightly increase commit latency since the leader must wait for more acknowledgments.
+
+## 5.2 Bottlenecks
+
+- Leader bandwidth: All writes must pass through a single leader
+- Full replication: Each node stores the complete 64×64 canvas
+- Commit overhead: Every pixel requires majority acknowledgment
+- WebSocket connections: Each node maintains connections to all its clients
+
+## 5.3 Possible improvements
+
+- Divide the canvas into regions each managed by an independent Raft cluster.
+- Batching: Group multiple pixel operations into a single log entry.
+- Snapshotting: Periodically snapshot canvas state to speed up recovery.
 
 # 6. Performance Evaluation
 
