@@ -144,8 +144,6 @@ flowchart TB
 
 # 4. System Functionalities
 
-- Antti will fill
-
 ## 4.1 Global State Management
 
 The global state of the system consists primarily of the shared canvas, represented as a fixed-size 64×64 grid of pixels. Each pixel is defined by its coordinates and color value. This state is fully replicated across all nodes in the Raft cluster.
