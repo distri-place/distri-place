@@ -264,10 +264,7 @@ A key lesson learned during the project was related to performance expectations 
 
 # 9. Appendices
 
-## **Note - How our application implementation changed from the original plan**
+## Changes to our initial plan
 
 - In our original project design-plan we considered using bully algorithm for the consensus. Instead we decided to implement the RAFT algorithm as it included the core functionalities that we wanted from our distributed system.
-
-## Changes to our tech stack:
-
 - Initially we thought about using TypeScript and React in the Front-end and Flask in the Back-end. However we decided to create the front-end without dedicated framework and in the back-end we used FastAPI with Python and added gRPC for communication between nodes.
