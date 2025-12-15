@@ -2,6 +2,10 @@
 
 A distributed r/place implementation.
 
+## Demo video
+
+[![Demo Video](https://img.youtube.com/vi/-ALniSWCHyc/0.jpg)](https://www.youtube.com/watch?v=-ALniSWCHyc)
+
 ## Quick Start
 
 ### Development
@@ -14,8 +18,6 @@ make dev-logs   # View logs
 ```
 
 ### Demo
-
-[![Demo Video](https://img.youtube.com/vi/-ALniSWCHyc/0.jpg)](https://www.youtube.com/watch?v=-ALniSWCHyc)
 
 ```bash
 make demo       # Run demo on university VMs using tmux
