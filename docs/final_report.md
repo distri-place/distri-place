@@ -92,16 +92,6 @@ flowchart TB
 - Leader-based writes provide strong consistency
 - Raft unifies leader election and state replication in one protocol
 
-### 3.1.2 Code mapping
-
-- ./server/app/api/client/routes.py — FastAPI HTTP
-- ./server/app/api/ws/routes.py — WebSocket handlers
-- ./server/app/raft/node.py — Raft node logic
-- ./server/app/raft/log.py — Raft log implementation
-- ./server/app/grpc/server.py — gRPC server for inter-node communication
-- ./server/app/grpc/client.py — gRPC client for inter-node communication
-- ./server/app/canvas/state.py — Canvas state and pixel operations
-
 ## 3.2 Process
 
 ## 3.2.1 Startup sequence:
@@ -142,6 +132,34 @@ flowchart TB
 | `AppendEntries` | Logs replication + heartbeat |
 | `RequesVote`    | Leader election              |
 
+## 3.4 Mapping of Design to Source Code
+
+### 3.4.1 Server
+
+- [`server/app/main.py`](server/app/main.py) — Application startup and server initialization
+- [`server/app/app.py`](server/app/app.py) — FastAPI application factory and configuration
+- [`server/app/config.py`](server/app/config.py) — Environment configuration and settings
+- [`server/app/api/client/routes.py`](server/app/api/client/routes.py) — HTTP REST endpoints (GET /pixels, POST /pixel)
+- [`server/app/api/ws/routes.py`](server/app/api/ws/routes.py) — WebSocket handlers for real-time updates
+- [`server/app/raft/node.py`](server/app/raft/node.py) — Core Raft algorithm implementation
+- [`server/app/raft/log.py`](server/app/raft/log.py) — Raft log data structure and operations
+- [`server/app/grpc/server.py`](server/app/grpc/server.py) — gRPC server for interal communication
+- [`server/app/grpc/client.py`](server/app/grpc/client.py) — gRPC client for internal communication
+- [`server/app/canvas/state.py`](server/app/canvas/state.py) — Canvas state management (64x64 pixel grid)
+- [`server/app/client/manager.py`](server/app/client/manager.py) — WebSocket client connection management
+
+### 3.4.2 Loadbalancer
+
+- [`loadbalancer/app/main.py`](loadbalancer/app/main.py) — Load balancer entry point
+- [`loadbalancer/app/handlers/http.py`](loadbalancer/app/handlers/http.py) — HTTP request proxy implementation
+- [`loadbalancer/app/handlers/websocket.py`](loadbalancer/app/handlers/websocket.py) — WebSocket proxy for real-time communication
+- [`loadbalancer/app/balancer/strategy.py`](loadbalancer/app/balancer/strategy.py) — Round-robin load balancing algorithm
+
+### 3.4.3 Client
+
+- [`client/index.html`](client/index.html) — Static HTML frontend with canvas UI
+- [`client/app.js`](client/app.js) — JavaScript client for canvas rendering and API calls
+
 # 4. System Functionalities
 
 ## 4.1 Global State Management
@@ -151,9 +169,10 @@ The global state of the system consists primarily of the shared canvas, represen
 Rather than directly modifying the canvas state, all changes are expressed as log entries in the Raft log. A pixel placement operation is encoded as a deterministic command (x-coordinate, y-coordinate, color), which is appended to the leader’s log. Once the log entry is committed, it is applied to the in-memory canvas state on all nodes in the same order.
 
 This approach ensures that:
- - All nodes eventually reach the same canvas state
- - State transitions are deterministic and replayable
- - New or recovering nodes can reconstruct the full canvas state by replaying the log
+
+- All nodes eventually reach the same canvas state
+- State transitions are deterministic and replayable
+- New or recovering nodes can reconstruct the full canvas state by replaying the log
 
 Reads (fetching the current canvas) can be served by any node, since all nodes maintain a replicated and up-to-date view of the global state once entries are committed.
 
@@ -163,10 +182,10 @@ Distri-place provides strong consistency for write operations. At any given time
 
 Consistency is achieved through the Raft log replication mechanism:
 
- 1. The leader appends a new pixel operation to its log.
- 2. The leader replicates the log entry to followers using AppendEntries RPCs.
- 3. Once a majority of nodes acknowledge the entry, it is considered committed.
- 4. The committed entry is then applied to the canvas state on all nodes.
+1.  The leader appends a new pixel operation to its log.
+2.  The leader replicates the log entry to followers using AppendEntries RPCs.
+3.  Once a majority of nodes acknowledge the entry, it is considered committed.
+4.  The committed entry is then applied to the canvas state on all nodes.
 
 Synchronization between clients is handled via WebSockets. After a log entry is committed and applied, the leader broadcasts the pixel update to all connected clients. This ensures that all users see updates in near real-time and in the same order, preserving a consistent view of the canvas.
 
@@ -179,11 +198,13 @@ Consensus in Distri-place is implemented using the Raft consensus algorithm. Raf
 Fault tolerance in Distri-place is achieved through replication and automated leader re-election. The system can tolerate failures of up to ⌊(N−1)/2⌋ nodes, where N is the total number of nodes in the cluster (in our case, one node out of three).
 
 If the leader fails:
- - Followers stop receiving heartbeats.
- - After a timeout, a new leader election is triggered.
- - A new leader is elected without client intervention.
+
+- Followers stop receiving heartbeats.
+- After a timeout, a new leader election is triggered.
+- A new leader is elected without client intervention.
 
 # 5. Scalability Evaluation
+
 Our system is technically highly scalable. With our project implementation adding more nodes is very easy and it does not affect the functionality of the system. The nodes keep following the leader-candidate-follower election system and other methods as described in raft. However scaling with just one leader is not ideal for the use cases of our project and our project goals. More of this just down below at #6
 
 Instead a better approach to scaling for our project would be for example to implement a multi-raft solution where the canvas is partitioned into multiple areas that each implement their own raft-environment. Each area would have their own leader and and followers for replication and fault tolerance. This approach would be a good option if our userbase were to grow very large and a single raft-cluster would experience congestion because of that. So the approach to scaling would have to be considered case by case and scaling just the single raft-cluster could be a good idea to a particular level.
@@ -208,7 +229,7 @@ One of the key enablers of the project was the early decision to base the system
 
 Another important enabler was the clear separation of concerns in the system architecture. Client-facing logic, consensus logic, and state management were implemented as distinct components. The modularity made the system easier to reason about, debug, and extend. It also allowed different group members to work on separate parts of the system in parallel without excessive coupling.
 
-From an implementation perspective, using FastAPI and gRPC proved effective. FastAPI as a modern framework enabled rapid development of a clean client API, while gRPC provided an efficient and type safe RPC communication layer for inter node communication. 
+From an implementation perspective, using FastAPI and gRPC proved effective. FastAPI as a modern framework enabled rapid development of a clean client API, while gRPC provided an efficient and type safe RPC communication layer for inter node communication.
 
 A key lesson learned during the project was related to performance expectations in distributed systems. Initially, it was assumed that distributing the system across multiple nodes would naturally improve performance. However, it became clear that Raft is not optimal for workloads where distribution is expected to increase performance. In a leader-based consensus system, adding more nodes can actually might decrease performance due to increased coordination overhead, additional network communication, and the fact that all write operations must still pass through a single leader. While Raft scales well in terms of availability and reliability, it does not inherently scale write throughput. This realization motivated the discussion of alternative designs, such as multi-Raft or sharded architectures, where load can be distributed across multiple leaders.
 
