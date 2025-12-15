@@ -94,26 +94,47 @@ flowchart TB
 
 ## 3.2 Process
 
-## 3.2.1 Startup sequence:
+### 3.2.1 Startup Sequence
 
-1. Node loads config (own ID, peer addresses, ports)
-2. Starts gRPC server for inter-node communication
-3. Starts FastAPI server for client connections
-4. Initializes as Raft follower with randomized election timeout
-5. If no heartbeat received, transitions to candidate and starts election
+1. Node loads configuration (node ID, peer addresses, HTTP and GRPC ports) from environment variables
+2. Canvas state-machine initialized as 64x64 in-memory grid
+3. gRPC server starts for internal Raft communication
+4. FastAPI HTTP server starts for client connections
+5. Node initializes as Raft FOLLOWER with randomized election timeout (1.5-3.0s)
+6. Raft event loop begins. If no heartbeat received within timeout, transitions to CANDIDATE
 
-## 3.2.2 Leader election (Raft):
+### 3.2.2 Leader Election Flow
 
-1. Follower times out → becomes candidate, increments term
-2. Votes for itself, sends `RequestVote` to peers
-3. If majority votes received → becomes leader
-4. Leader sends periodic `AppendEntries` heartbeats to maintain authority
+1. Followers election timer expires -> becomes CANDIDATE, increments term
+2. Votes for itself, broadcast `RequestVote`
+3. If majority votes received -> becomes LEADER
+4. Leader sends periodic `AppendEntries` heartbeats (every 1s) to maintain authority
+5. If higher term discovered -> steps down to FOLLOWER
 
-## 3.2.3 Node failure handling:
+### 3.2.3 Pixel Placement Flow
 
-- Followers detect leader failure via heartbeat timeout (150-300ms)
-- New election triggered automatically
-- Rejoining node syncs log from current leader
+1. Client sends POST `/client/pixel` {x, y, color, user_id} -> load balancer
+2. Load balancer forwards request to any healthy node (round-robin)
+3. Node processing: 
+   - follower -> forwards to leader via gRPC `SubmitPixel`, returns leader response
+   - leader -> continues to step 4
+4. Leader creates LogEntry{term, index, x, y, color} -> appends to local Raft log
+5. Leader sends `AppendEntries` RPCs to all followers with new entry
+6. Each follower:
+   - validates log consistency (prev_log_index, prev_log_term)
+   - appends entry to local log
+   - responds success=true to leader
+7. Leader tries to advance commit index:
+   - counts replications: leader(1) + successful follower responses
+   - majority achieved (2 or 3) -> advance commit index
+8. Leader calls commit apply:
+   - updates canvas state: `canvas.update(x, y, color)`
+   - resolves pending commit future -> returns success=true to client
+   - canvas triggers `on_update` callback -> broadcasts to WebSocket clients
+9. On next `AppendEntries` (heartbeat), followers receive updated `leader_commit`:
+   - update local `commit_index = min(leader_commit, last_log_index)`
+   - apply the commits -> update local canvas state
+   - broadcast pixel update to connected WebSocket clients
 
 ## 3.3 Communication
 
