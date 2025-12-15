@@ -53,11 +53,6 @@ The core feature of our application for users is the ability to collaborate in c
 
 # 3. Design Principles
 
-- Viljami will fill
-
-- reading from followers
-- writes only to leader
-
 ## 3.1 Architecture
 
 distri-place uses a leader-based replicated architecture with 3 server nodes.
