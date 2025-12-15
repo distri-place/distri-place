@@ -138,6 +138,9 @@ flowchart TB
 
 ## 3.3 Communication
 
+The system was two communication layers:
+client-server for client and server-server for Raft.
+
 ### 3.3.1 Client - Server
 
 | Protocol  | Endpoint         | Purpose                         |
@@ -146,12 +149,25 @@ flowchart TB
 | HTTP POST | `/client/pixel`  | Submit a new pixel              |
 | WebSocket | `/ws`            | Receive real-time pixel updates |
 
+When a client first loads the page, it fetches the full canvas from the LB via GET.
+When a user places a pixel, the client sends a POST to the LB.
+
+The WebSocket connection is established on page load.
+When any pixel is committed on any node, that node broadcasts the update to all connected WebSocket clients.
+This allows users to see other changes in real-time.
+
+The load balancer proxies both HTTP and WebSocket traffic.
+For WebSocket connections, it makes a connection to one of the backend nodes and forwards messages bidirectionally.
+
 ### 3.3.2 Server - Server
 
-| RPC             | Purpose                      |
-| --------------- | ---------------------------- |
-| `AppendEntries` | Logs replication + heartbeat |
-| `RequesVote`    | Leader election              |
+| RPC             | Purpose                                                |
+| --------------- | ------------------------------------------------------ |
+| `AppendEntries` | Log replication and heartbeat from leader to followers |
+| `RequestVote`   | Leader election voting during candidate phase          |
+| `SubmitPixel`   | Forwarding pixel requests from follower to leader      |
+
+GRPC is asynchronous, allowing nodes to handle multiple requests without blocking.
 
 ## 3.4 Mapping of Design to Source Code
 
