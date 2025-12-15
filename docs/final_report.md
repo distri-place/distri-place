@@ -100,7 +100,7 @@ flowchart TB
 2. Canvas state-machine initialized as 64x64 in-memory grid
 3. gRPC server starts for internal Raft communication
 4. FastAPI HTTP server starts for client connections
-5. Node initializes as Raft FOLLOWER with randomized election timeout (1.5-3.0s)
+5. Node initializes as Raft FOLLOWER with randomized election timeout (2.0-4.0s)
 6. Raft event loop begins. If no heartbeat received within timeout, transitions to CANDIDATE
 
 ### 3.2.2 Leader Election Flow
@@ -115,7 +115,7 @@ flowchart TB
 
 1. Client sends POST `/client/pixel` {x, y, color, user_id} -> load balancer
 2. Load balancer forwards request to any healthy node (round-robin)
-3. Node processing: 
+3. Node processing:
    - follower -> forwards to leader via gRPC `SubmitPixel`, returns leader response
    - leader -> continues to step 4
 4. Leader creates LogEntry{term, index, x, y, color} -> appends to local Raft log
@@ -212,17 +212,43 @@ Synchronization between clients is handled via WebSockets. After a log entry is 
 
 ## 4.3 Consensus Mechanism
 
-Consensus in Distri-place is implemented using the Raft consensus algorithm. Raft is responsible for both leader election and agreement on the order of state changes.
+Consensus in Distri-place is implemented using the Raft consensus algorithm.
+Raft is responsible for both leader election and agreement on the order of state changes.
 
 ## 4.4 Fault Tolerance and Recovery
 
-Fault tolerance in Distri-place is achieved through replication and automated leader re-election. The system can tolerate failures of up to ⌊(N−1)/2⌋ nodes, where N is the total number of nodes in the cluster (in our case, one node out of three).
+Fault tolerance is achieved through replication and automated leader re-election.
+The system can tolerate failures of up to ⌊(N−1)/2⌋ nodes, where N is the total number of nodes in the cluster (in our case, one node out of three).
 
-If the leader fails:
+### 4.4.1 If the leader fails:
 
 - Followers stop receiving heartbeats.
 - After a timeout, a new leader election is triggered.
 - A new leader is elected without client intervention.
+
+### 4.4.2 If a follower fails:
+
+- The leader detects failure via failed AppendEntries RPC.
+- Commits continue as long as majority quorum is maintained.
+- The system remains fully operational for reads and writes.
+
+### 4.4.3 Limitations
+
+When a crashed node restarts, it rejoins the cluster with an empty state (no pixels).
+Our app does not persist the Raft log or state-machine to disk, so a recovering node starts with no knowledge of previous operations.
+
+Recovery works through Raft's normal log replication mechanism:
+
+1. The recovering node starts as FOLLOWER with an empty log
+2. The leader sends AppendEntries RPCs and detects log inconsistency
+3. The leader decrements `next_index` until logs match (index 0 for empty node)
+4. All log entries are then replayed to the recovering node
+5. As entries commit, the node rebuilds its canvas state by applying each pixel operation
+
+This means that recovery time can take very long depending on the amount of pixels.
+In the current implementation, during this time the node will show an empty canvas until it catches up.
+
+In production we would improve this with persistent log storage and snapshots for sync.
 
 # 5. Scalability Evaluation
 
