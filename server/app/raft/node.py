@@ -21,6 +21,13 @@ class Role(Enum):
 
 
 class RaftNode:
+    # Timeout configuration
+    ELECTION_TIMEOUT_MIN = 2.0
+    ELECTION_TIMEOUT_MAX = 4.0
+    HEARTBEAT_INTERVAL = 0.5
+    COMMIT_TIMEOUT = 30.0
+    FOLLOWER_CHECK_INTERVAL = 0.5
+
     def __init__(self, node_id: str, peers: list[PeerNode], canvas: Canvas):
         self.canvas = canvas
         self.grpc_client = RaftClient(node_id)
@@ -44,7 +51,9 @@ class RaftNode:
         self.match_index: dict[str, int] | None = None
         self._pending_commits: dict[int, asyncio.Future[bool]] | None = None
 
-        self._election_timeout = random.uniform(1.5, 3.0)
+        self._election_timeout = random.uniform(
+            self.ELECTION_TIMEOUT_MIN, self.ELECTION_TIMEOUT_MAX
+        )
         self._last_heartbeat = asyncio.get_event_loop().time()
 
     async def start(self):
@@ -64,13 +73,13 @@ class RaftNode:
             if elapsed >= self._election_timeout:
                 await self._start_election()
 
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(self.FOLLOWER_CHECK_INTERVAL)
 
     async def _leader_loop(self):
         logger.debug(f"Node {self.node_id}: called _leader_loop()")
         while self.role == Role.LEADER:
             await self._send_heartbeats()
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(self.HEARTBEAT_INTERVAL)
 
     async def _start_election(self):
         logger.debug(f"Node {self.node_id}: called _start_election()")
@@ -79,7 +88,9 @@ class RaftNode:
         self.voted_for = self.node_id
 
         # Reset election
-        self._election_timeout = random.uniform(1.5, 3.0)
+        self._election_timeout = random.uniform(
+            self.ELECTION_TIMEOUT_MIN, self.ELECTION_TIMEOUT_MAX
+        )
         self._last_heartbeat = asyncio.get_event_loop().time()
 
         term = self.current_term
@@ -316,11 +327,11 @@ class RaftNode:
 
             try:
                 logger.debug(f"Node {self.node_id}: waiting for commit with 30s timeout")
-                result = await asyncio.wait_for(future, timeout=30.0)
+                result = await asyncio.wait_for(future, timeout=self.COMMIT_TIMEOUT)
                 logger.debug(f"Node {self.node_id}: commit completed with result={result}")
                 return result
             except TimeoutError:
-                logger.debug(f"Node {self.node_id}: commit timed out after 30s")
+                logger.debug(f"Node {self.node_id}: commit timed out after {self.COMMIT_TIMEOUT}s")
                 if self._pending_commits is not None and entry.index in self._pending_commits:
                     del self._pending_commits[entry.index]
                 return False
