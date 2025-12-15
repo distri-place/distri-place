@@ -40,7 +40,10 @@ class WebSocketHandler:
                 async for msg in client_ws.iter_text():
                     await backend_ws.send(msg)
             else:
-                async for msg in backend_ws:
-                    await client_ws.send_text(msg)
+                async for backend_msg in backend_ws:
+                    if isinstance(backend_msg, bytes):
+                        await client_ws.send_bytes(backend_msg)
+                    else:
+                        await client_ws.send_text(backend_msg)
         except Exception:
             pass

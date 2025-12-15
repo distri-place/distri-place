@@ -12,7 +12,7 @@ from app.handlers.websocket import WebSocketHandler
 
 logger = logging.getLogger(__name__)
 
-pool = ServerPool(settings.SERVERS)
+pool = ServerPool(settings.SERVERS)  # type: ignore[arg-type]
 http_handler = HTTPHandler(pool)
 ws_handler = WebSocketHandler(pool)
 

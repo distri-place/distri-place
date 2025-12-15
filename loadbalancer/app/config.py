@@ -24,7 +24,6 @@ class Settings(BaseSettings):
     )
 
     @computed_field
-    @property
     def SERVERS(self) -> list[ServerNode]:
         result = []
         for server in self.servers_string.split(","):

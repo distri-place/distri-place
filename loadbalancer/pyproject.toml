@@ -56,6 +56,7 @@ warn_unused_ignores = true
 warn_no_return = true
 strict_equality = true
 ignore_missing_imports = true
+explicit_package_bases = true
 
 [[tool.mypy.overrides]]
 module = "tests.*"
