@@ -175,33 +175,35 @@ For WebSocket connections, it makes a connection to one of the backend nodes and
 
 GRPC is asynchronous, allowing nodes to handle multiple requests without blocking.
 
+The RPC message definitiosn are availble in [`server/proto/messages.proto`](../server/proto/messages.proto).
+
 ## 3.4 Mapping of Design to Source Code
 
 ### 3.4.1 Server
 
-- [`server/app/main.py`](server/app/main.py) — Application startup and server initialization
-- [`server/app/app.py`](server/app/app.py) — FastAPI application factory and configuration
-- [`server/app/config.py`](server/app/config.py) — Environment configuration and settings
-- [`server/app/api/client/routes.py`](server/app/api/client/routes.py) — HTTP REST endpoints (GET /pixels, POST /pixel)
-- [`server/app/api/ws/routes.py`](server/app/api/ws/routes.py) — WebSocket handlers for real-time updates
-- [`server/app/raft/node.py`](server/app/raft/node.py) — Core Raft algorithm implementation
-- [`server/app/raft/log.py`](server/app/raft/log.py) — Raft log data structure and operations
-- [`server/app/grpc/server.py`](server/app/grpc/server.py) — gRPC server for interal communication
-- [`server/app/grpc/client.py`](server/app/grpc/client.py) — gRPC client for internal communication
-- [`server/app/canvas/state.py`](server/app/canvas/state.py) — Canvas state management (64x64 pixel grid)
-- [`server/app/client/manager.py`](server/app/client/manager.py) — WebSocket client connection management
+- [`server/app/main.py`](../server/app/main.py) — Application startup and server initialization
+- [`server/app/app.py`](../server/app/app.py) — FastAPI application factory and configuration
+- [`server/app/config.py`](../server/app/config.py) — Environment configuration and settings
+- [`server/app/api/client/routes.py`](../server/app/api/client/routes.py) — HTTP REST endpoints (GET /pixels, POST /pixel)
+- [`server/app/api/ws/routes.py`](../server/app/api/ws/routes.py) — WebSocket handlers for real-time updates
+- [`server/app/raft/node.py`](../server/app/raft/node.py) — Core Raft algorithm implementation
+- [`server/app/raft/log.py`](../server/app/raft/log.py) — Raft log data structure and operations
+- [`server/app/grpc/server.py`](../server/app/grpc/server.py) — gRPC server for interal communication
+- [`server/app/grpc/client.py`](../server/app/grpc/client.py) — gRPC client for internal communication
+- [`server/app/canvas/state.py`](../server/app/canvas/state.py) — Canvas state management (64x64 pixel grid)
+- [`server/app/client/manager.py`](../server/app/client/manager.py) — WebSocket client connection management
 
 ### 3.4.2 Loadbalancer
 
-- [`loadbalancer/app/main.py`](loadbalancer/app/main.py) — Load balancer entry point
-- [`loadbalancer/app/handlers/http.py`](loadbalancer/app/handlers/http.py) — HTTP request proxy implementation
-- [`loadbalancer/app/handlers/websocket.py`](loadbalancer/app/handlers/websocket.py) — WebSocket proxy for real-time communication
-- [`loadbalancer/app/balancer/strategy.py`](loadbalancer/app/balancer/strategy.py) — Round-robin load balancing algorithm
+- [`loadbalancer/app/main.py`](../loadbalancer/app/main.py) — Load balancer entry point
+- [`loadbalancer/app/handlers/http.py`](../loadbalancer/app/handlers/http.py) — HTTP request proxy implementation
+- [`loadbalancer/app/handlers/websocket.py`](../loadbalancer/app/handlers/websocket.py) — WebSocket proxy for real-time communication
+- [`loadbalancer/app/balancer/strategy.py`](../loadbalancer/app/balancer/strategy.py) — Round-robin load balancing algorithm
 
 ### 3.4.3 Client
 
-- [`client/index.html`](client/index.html) — Static HTML frontend with canvas UI
-- [`client/app.js`](client/app.js) — JavaScript client for canvas rendering and API calls
+- [`client/index.html`](../client/index.html) — Static HTML frontend with canvas UI
+- [`client/app.js`](../client/app.js) — JavaScript client for canvas rendering and API calls
 
 # 4. System Functionalities
 
